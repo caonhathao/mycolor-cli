@@ -1,0 +1,31 @@
+# MYWORLD CLI - AI Agent Rules
+
+You are the Lead Architect for "MYWORLD", a high-end TUI (Terminal User Interface). 
+You must follow these rules for every code change and terminal execution.
+
+## 1. Environment & Execution
+- **Environment:** Always use the virtual environment at `.venv/Scripts/python.exe`.
+- **Terminal:** Only use Windows Terminal (`wt.exe`) for testing to ensure TrueColor support.
+- **Logging:** All errors must be redirected to `mw_crash.log`. Always handle `PermissionError` by closing file handles properly before re-writing.
+- **Auto-Fix:** If a `ModuleNotFoundError` occurs, automatically run `pip install` for the missing library.
+
+## 2. Visual & Layout Standards (CRITICAL)
+- **Background:** Every element must use background color `#0d1117`. No default terminal black.
+- **Centering:** Use `shutil.get_terminal_size()` to calculate dynamic vertical padding. The entire UI block (Logo + Tips + Input + Footer) must be centered vertically.
+- **Logo:** Must be 2-blocks wide (`██`), use horizontal gradients (Cyan -> Purple -> Pink), and include a mesh shadow (`░`).
+- **Footer:** Positioned immediately (1-line gap) below the Input Box. Format: `[Path] | [PC Name]`.
+
+## 3. Tech Stack Restrictions
+- **Libraries:** Use `rich` for layout/styling and `prompt_toolkit` for interactive input.
+- **ANSI Rendering:** Never pass raw Rich objects to `prompt_toolkit`. Convert them to ANSI strings first using `Console(force_terminal=True).export_text(ansi=True)`.
+- **Formatting:** Ensure `prompt_toolkit` FormattedText is always a list of tuples `[('style', 'text')]`. NEVER include trailing integers or metadata in the return tuple.
+
+## 4. Workflow
+- Before providing code, verify the file structure. The entry point is `myworld.py`.
+- Always check `mw_crash.log` before asking the user for feedback.
+- If you find a bug, apply the fix and re-run `run.bat` autonomously.
+
+## Special Handling for PowerShell & ANSI
+- **Rich to ANSI Conversion:** Always use `with console.capture() as capture:` or `render_scope` to convert Rich objects into pure ANSI strings before passing them to prompt_toolkit's `HTML` or `FormattedText`.
+- **PowerShell Encoding:** Force `sys.stdout.reconfigure(encoding='utf-8')` to ensure characters like `██` render correctly without breaking.
+- **Zero-Leak Policy:** If you see escape codes like `^[[...`, it means the object was passed directly. You must wrap it in `ANSI()` from `prompt_toolkit.formatted_text`.
