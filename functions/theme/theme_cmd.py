@@ -1,34 +1,23 @@
 from rich.table import Table
-from rich.panel import Panel
 from .theme_logic import set_theme, get_app_style, THEMES
 import functions.theme.theme_logic
+from template.result_response import BaseResponseTemplate
 
 def handle_theme_command(command_text, log_to_buffer, app_ref):
-    current_theme = functions.theme.theme_logic.current_theme
-    get_pt_color_hex = functions.theme.theme_logic.get_pt_color_hex
-    primary_hex = get_pt_color_hex(current_theme["primary"])
-    secondary_hex = get_pt_color_hex(current_theme["secondary"])
-
     parts = command_text.split()
     if len(parts) == 1:
-        log_to_buffer("[bold yellow]Usage: /theme [flags][/bold yellow]")
-        log_to_buffer(f"  --style [{secondary_hex}]<name>[/{secondary_hex}]  : Set a specific theme")
-        log_to_buffer("  --list          : List available themes")
-        log_to_buffer("  --help          : Show detailed help")
+        log_to_buffer(BaseResponseTemplate(
+            "Theme Manager",
+            "/theme [flags]",
+            {
+                "--style <name>": "Set a specific theme",
+                "--list": "List available themes",
+                "--help": "Show detailed help"
+            }
+        ))
     elif len(parts) == 2 and parts[1] == "--help":
-        help_content = f"""
-[{primary_hex} bold]Description:[/{primary_hex} bold]
-  Manage the visual theme of the application.
-
-[bold {primary_hex}]Flags:[/bold {primary_hex}]
-  [{secondary_hex}]--style <name>[/{secondary_hex}]  Apply a specific color theme immediately.
-  [{secondary_hex}]--list[/{secondary_hex}]          Show a table of all available themes.
-  [{secondary_hex}]--help[/{secondary_hex}]          Show this manual.
-
-[bold {primary_hex}]Examples:[/bold {primary_hex}]
-  /theme --style cyber
-  /theme --list"""
-        log_to_buffer(Panel(help_content.strip(), title="[bold magenta]Command Manual: /theme[/bold magenta]", border_style="cyan"))
+        # Reuse the base template for help as well for consistency
+        handle_theme_command("/theme", log_to_buffer, app_ref)
     elif len(parts) == 2 and parts[1] == "--list":
         table = Table(title="Available Themes", show_header=False, box=None)
         table.add_column("Name", style="cyan")

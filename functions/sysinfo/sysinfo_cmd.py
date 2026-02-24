@@ -1,9 +1,9 @@
-from rich.panel import Panel
 from .sysinfo_logic import (
     get_general_info, get_cpu_info, get_ram_info, 
     get_disk_info, get_display_info, get_input_info
 )
 import functions.theme.theme_logic
+from template.result_response import BaseResponseTemplate
 
 def format_output(title, data_dict, log_to_buffer):
     current_theme = functions.theme.theme_logic.current_theme
@@ -32,22 +32,19 @@ def handle_sysinfo_command(log_to_buffer, command_text=""):
 
     if not flags:
         # Show Guide
-        log_to_buffer("")
-        help_text = f"""
-[{primary_hex} bold]System Information Tool (DxDiag Style)[/{primary_hex} bold]
-
-[bold white]Usage:[/bold white] /sysinfo [flags]
-
-[bold {primary_hex}]Available Flags:[/bold {primary_hex}]
-  [{secondary_hex}]--g[/]        General System Information
-  [{secondary_hex}]--cpu[/]      Processor Specifications
-  [{secondary_hex}]--ram[/]      Memory Statistics
-  [{secondary_hex}]--disk[/]     Storage Devices
-  [{secondary_hex}]--display[/]  Graphics Devices
-  [{secondary_hex}]--input[/]    Peripherals
-  [{secondary_hex}]--help[/]     Show this guide
-"""
-        log_to_buffer(Panel(help_text.strip(), border_style=primary_hex, title="Command Guide", width=80))
+        log_to_buffer(BaseResponseTemplate(
+            "System Information Tool (DxDiag Style)",
+            "/sysinfo [flags]",
+            {
+                "--g": "General System Information",
+                "--cpu": "Processor Specifications",
+                "--ram": "Memory Statistics",
+                "--disk": "Storage Devices",
+                "--display": "Graphics Devices",
+                "--input": "Peripherals",
+                "--help": "Show this guide"
+            }
+        ))
         return
 
     if "--help" in flags:
