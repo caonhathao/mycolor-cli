@@ -1,16 +1,13 @@
-import psutil  # For /sysinfo command
 import io
 from functools import partial
-from rich.table import Table
-from rich.console import Console
-from rich.panel import Panel
+from rich.console import Console, Group
 from rich import box
+from rich.text import Text
 
 from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.document import Document
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout.controls import BufferControl
-from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.widgets import TextArea, Frame, Label
@@ -24,8 +21,14 @@ from prompt_toolkit.layout.containers import (
 from prompt_toolkit.filters import Condition
 from prompt_toolkit.formatted_text import Template
 
-import functions.theme
-from functions.theme import set_theme, get_app_style, THEMES
+import functions.theme.theme_logic
+from functions.theme.theme_cmd import handle_theme_command
+from functions.sysinfo.sysinfo_cmd import handle_sysinfo_command
+from functions.system.system_cmd import handle_system_command
+from functions.help import handle_help_command
+from functions.quit import handle_quit_command
+from functions.clear import handle_clear_command
+from components.completer import DynamicCommandCompleter
 
 
 class RoundedBorder:
@@ -125,7 +128,7 @@ def get_input_text_area(application_ref, console_ref, output_buffer, on_accept=N
     Requires a reference to the main prompt_toolkit Application to invalidate it for redraws,
     and a console_ref for printing command output.
     """
-    command_completer = WordCompleter(['/theme', '/help', '/sysinfo', '/quit', '/clear'], ignore_case=True)
+    command_completer = DynamicCommandCompleter()
 
     def log_to_buffer(renderable):
         """Renders a Rich object to ANSI string and appends to output buffer."""
@@ -152,80 +155,45 @@ def get_input_text_area(application_ref, console_ref, output_buffer, on_accept=N
         if on_accept:
             on_accept(buff)
 
+        # Fetch dynamic colors for semantic highlighting
+        primary_hex = functions.theme.theme_logic.get_pt_color_hex(functions.theme.theme_logic.current_theme["primary"])
+        
+
         if command_text:
             # Echo the command to history
-            # Boxed command with main theme color
-            border_style = functions.theme.current_theme["primary"]
-            command_panel = Panel(
-                f"[bold cyan] > [/bold cyan]{command_text}",
-                box=box.ROUNDED,
-                border_style=border_style,
-                expand=True, # Expands to console width (80)
-                width=80,
-                padding=(0, 1)
-            )
-            log_to_buffer(command_panel)
+            # New OpenCode aesthetic: Accent bar + Lighter background
+            
+            history_line = Text()
+            # Part 1: Accent Bar (Purple on Lighter Gray)
+            history_line.append("▋", style=f"{primary_hex} on #21262d")
+            # Part 2: Spacing & Prompt (Cyan on Lighter Gray)
+            history_line.append("  > ", style="bold cyan on #21262d")
+            # Part 3: Command (White on Lighter Gray)
+            history_line.append(command_text, style="white on #21262d")
+            # Fill remaining width with background color (Total 80 chars)
+            pad_len = 80 - history_line.cell_len
+            if pad_len > 0:
+                history_line.append(" " * pad_len, style="on #21262d")
+            
+            # Padding line (top/bottom)
+            padding_line = Text()
+            padding_line.append("▋", style=f"{primary_hex} on #21262d")
+            padding_line.append(" " * 79, style="on #21262d")
+            
+            log_to_buffer(Group(padding_line, history_line, padding_line))
 
         if command_text == "/quit":
             application_ref.exit()
         elif command_text.startswith("/theme"):
-            parts = command_text.split()
-            if len(parts) == 1:
-                log_to_buffer("[bold yellow]Usage: /theme [flags][/bold yellow]")
-                log_to_buffer("  --style <name>  : Set a specific theme")
-                log_to_buffer("  --list          : List available themes")
-                log_to_buffer("  --help          : Show detailed help")
-            elif len(parts) == 2 and parts[1] == "--help":
-                help_content = """
-[bold cyan]Description:[/bold cyan]
-  Manage the visual theme of the application.
-
-[bold cyan]Flags:[/bold cyan]
-  [green]--style <name>[/green]  Apply a specific color theme immediately.
-  [green]--list[/green]          Show a table of all available themes.
-  [green]--help[/green]          Show this manual.
-
-[bold cyan]Examples:[/bold cyan]
-  /theme --style cyber
-  /theme --list"""
-                log_to_buffer(Panel(help_content.strip(), title="[bold magenta]Command Manual: /theme[/bold magenta]", border_style="cyan"))
-            elif len(parts) == 2 and parts[1] == "--list":
-                table = Table(title="Available Themes", show_header=False, box=None)
-                table.add_column("Name", style="cyan")
-                for name in THEMES.keys():
-                    table.add_row(name)
-                log_to_buffer(table)
-            elif len(parts) == 3 and parts[1] == "--style":
-                style_name = parts[2]
-                if set_theme(style_name):
-                    application_ref.style = get_app_style()
-                    log_to_buffer(f"[bold green]Theme set to {style_name}[/bold green]")
-                else:
-                    log_to_buffer(f"[bold red]Error: Theme '{style_name}' not found. Use /theme --list to see options.[/bold red]")
-            else:
-                log_to_buffer("[bold red]Error: Invalid arguments. Use /theme --help for usage.[/bold red]")
-        elif command_text == "/sysinfo":
-            try:
-                cpu_percent = psutil.cpu_percent(interval=None)  # Non-blocking
-                ram_percent = psutil.virtual_memory().percent
-                disk_usage = psutil.disk_usage("/").percent
-                log_to_buffer(
-                    f"[bold blue]System Info:[/bold blue] CPU: {cpu_percent:.1f}% | RAM: {ram_percent:.1f}% | Disk: {disk_usage:.1f}%"
-                )
-            except Exception as e:
-                log_to_buffer(
-                    f"[bold red]Error getting system info:[/bold red] {e}"
-                )
+            handle_theme_command(command_text, log_to_buffer, application_ref)
+        elif command_text.startswith("/sysinfo"):
+            handle_sysinfo_command(log_to_buffer, command_text)
+        elif command_text.startswith("/system"):
+            handle_system_command(log_to_buffer, command_text, application_ref)
         elif command_text == "/help":
-             log_to_buffer(
-                    f"Available commands: /theme, /sysinfo, /quit, /help, /clear"
-                )
+            handle_help_command(log_to_buffer)
         elif command_text == "/clear":
-             # This is tricky in prompt-toolkit as we don't want to clear the whole screen,
-             # just the conceptual "output" area.
-             # For now, we can just print a bunch of newlines, or if we had a dedicated output window,
-             # we would clear its content. This is a simple placeholder.
-             output_buffer.text = ""
+            handle_clear_command(output_buffer)
         elif command_text: # Not empty
             log_to_buffer(
                 f"[bold yellow]Command not recognized:[/bold yellow] {command_text}"

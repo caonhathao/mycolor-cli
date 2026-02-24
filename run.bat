@@ -4,23 +4,20 @@ set "PYTHON_EXE=%PROJECT_DIR%\.venv\Scripts\python.exe"
 set "SCRIPT_FILE=%PROJECT_DIR%\myworld.py"
 set "LOG_FILE=%PROJECT_DIR%\mw_crash.log"
 
-:: Ensure we're in project directory (critical when double-clicking)
+:: Nhảy vào thư mục dự án
 cd /d "%PROJECT_DIR%"
 
-:: 1. Reset log
-echo [START LOG] %date% %time% > "%LOG_FILE%"
+:: Ép kích thước cửa sổ ngay lập tức
+title MYCOLOR CLI - LAPTOP-J2I22MSG
 
-:: 2. Kiểm tra wt.exe
-where wt.exe >nul 2>nul
-if %ERRORLEVEL% equ 0 (
-    echo Dang mo Windows Terminal...
-    :: start "" = empty title so arguments parse correctly
-    start "" wt.exe -d "%PROJECT_DIR%" --title "MYCOLOR CLI" powershell.exe -NoProfile -NoLogo -NoExit -Command "& '%PYTHON_EXE%' '%SCRIPT_FILE%'"
-    echo WT da mo. Dong tab WT de thoat.
-) else (
-    echo Khong tim thay WT, chay PowerShell truc tiep...
-    powershell.exe -NoProfile -NoLogo -NoExit -Command "& '%PYTHON_EXE%' '%SCRIPT_FILE%'"
+:: Chạy Python và gộp stdout + stderr ( > log 2>&1)
+:: Thêm %* để nhận mọi tham số truyền từ bên ngoài vào (như --hold nếu có)
+"%PYTHON_EXE%" "%SCRIPT_FILE%" %* > "%LOG_FILE%" 2>&1
+
+:: Nếu có lỗi (ERRORLEVEL != 0), hiển thị nội dung log ra màn hình
+if %ERRORLEVEL% NEQ 0 (
+    echo [CRASH DETECTED] Check mw_crash.log for details:
+    type "%LOG_FILE%"
 )
 
-:: Keep window open so you can see any errors
 pause

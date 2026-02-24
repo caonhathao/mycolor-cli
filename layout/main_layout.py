@@ -1,3 +1,4 @@
+import shutil
 from prompt_toolkit.layout.containers import HSplit, Window
 from prompt_toolkit.layout.layout import Layout
 from prompt_toolkit.layout.controls import FormattedTextControl
@@ -8,6 +9,7 @@ from prompt_toolkit.layout.margins import ScrollbarMargin
 
 from components.footer import get_footer_left, get_footer_right
 from components.input_area import RoundedFrame
+import functions.theme.theme_logic
 
 
 def get_main_layout(input_area, output_buffer, console):
@@ -15,6 +17,9 @@ def get_main_layout(input_area, output_buffer, console):
     Constructs the main application layout.
     """
     # --- Unified History Buffer Logic ---
+    ts = shutil.get_terminal_size()
+    width = ts.columns
+
     def get_output_content():
         return ANSI(output_buffer.text)
 
@@ -39,6 +44,6 @@ def get_main_layout(input_area, output_buffer, console):
         terminal_history,
         RoundedFrame(input_area, title="Input"),
         Window(content=FormattedTextControl(get_footer_text), height=1, style="class:footer-pad")
-    ], style="bg:#0d1117") # Force background color
+    ], style="class:app-background", width=Dimension(min=width), height=Dimension(min=ts.lines))
 
     return Layout(root_container, focused_element=input_area)

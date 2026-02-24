@@ -196,7 +196,18 @@ def generate_logo_rich_text(width: int, theme: dict, background_color_hex: str) 
     Uses █ (U+2588) for logo, ░ (U+2591) for shadow. Every character has bg #0d1117 for seamless display.
     """
     word = "MYCOLOR"
-    gradient_colors = theme["logo_gradient"]
+    
+    # Dynamic Logo Colors: Use Primary and Secondary from theme
+    def _get_hex(s: Style) -> str:
+        if s and s.color:
+            try:
+                t = s.color.get_truecolor()
+                return f"#{t.red:02x}{t.green:02x}{t.blue:02x}"
+            except Exception:
+                pass
+        return "#ffffff"
+
+    gradient_colors = [_get_hex(theme.get("primary")), _get_hex(theme.get("secondary"))]
     # Shadow: font-safe ░ (U+2591). Convert shadow color to 6-digit hex.
     try:
         shadow_color = Color.parse(theme.get("logo_shadow", "grey30"))
