@@ -15,6 +15,7 @@ from prompt_toolkit.formatted_text import ANSI, to_formatted_text, split_lines
 from prompt_toolkit.formatted_text.utils import fragment_list_to_text
 from prompt_toolkit.layout.menus import CompletionsMenu
 from prompt_toolkit.data_structures import Point
+from prompt_toolkit.document import Document
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.keys import Keys
 from prompt_toolkit.mouse_events import MouseEventType, MouseButton
@@ -34,6 +35,24 @@ def get_cmd_screen_container(input_area, output_buffer):
     # Ensure history is read-only
     output_buffer.read_only = True
 
+    # 1. Increase Buffer Limit & Efficiency (Circular Buffer)
+    MAX_LINES = 2000
+
+    def enforce_buffer_limit(_=None):
+        if output_buffer.document.line_count > MAX_LINES:
+            # Efficiently slice the text to keep only the last MAX_LINES
+            lines = output_buffer.text.splitlines(keepends=True)
+            if len(lines) > MAX_LINES:
+                new_text = "".join(lines[-MAX_LINES:])
+                # Bypass read_only to update
+                output_buffer.buffer.set_document(
+                    Document(new_text, cursor_position=len(new_text)),
+                    bypass_readonly=True,
+                )
+
+    # Hook into text changed event
+    output_buffer.buffer.on_text_changed += enforce_buffer_limit
+
     # --- Selection & Notification State ---
     class SelectionState:
         def __init__(self):
@@ -42,7 +61,7 @@ def get_cmd_screen_container(input_area, output_buffer):
             self.is_selecting = False
             self.cached_text = None
             self.cached_lines = None
-            
+
             # Notification state
             self.show_notification = False
             self.notification_task = None
@@ -75,7 +94,7 @@ def get_cmd_screen_container(input_area, output_buffer):
         elif mouse_event.event_type == MouseEventType.SCROLL_DOWN:
             output_buffer.buffer.cursor_down(count=20)
             return None
-        
+
         # Handle Selection
         app = get_app()
 
@@ -87,10 +106,10 @@ def get_cmd_screen_container(input_area, output_buffer):
         # Map visual coordinates to logical text coordinates
         visual_y = mouse_event.position.y
         visual_x = mouse_event.position.x
-        
+
         if visual_y < len(render_info.displayed_lines):
             logical_line_idx = render_info.displayed_lines[visual_y]
-            
+
             # Calculate logical column (accounting for wrapping)
             # Count how many times this line index appeared above in the current view
             wrap_offset = 0
@@ -99,13 +118,13 @@ def get_cmd_screen_container(input_area, output_buffer):
                     wrap_offset += 1
                 else:
                     break
-            
+
             logical_col_idx = visual_x + (wrap_offset * render_info.window_width)
             current_coord = (logical_line_idx, logical_col_idx)
 
             if mouse_event.event_type == MouseEventType.MOUSE_DOWN:
                 if mouse_event.button == MouseButton.LEFT:
-                    app.layout.focus(terminal_window) # Explicit focus
+                    app.layout.focus(terminal_window)  # Explicit focus
                     state.is_selecting = True
                     state.start_coord = current_coord
                     state.end_coord = current_coord
@@ -124,7 +143,7 @@ def get_cmd_screen_container(input_area, output_buffer):
                     state.end_coord = current_coord
                     app.invalidate()
                     return None
-                
+
                 # Right click to copy
                 if mouse_event.button == MouseButton.RIGHT and state.start_coord:
                     start, end = state.get_sorted_coords()
@@ -132,23 +151,23 @@ def get_cmd_screen_container(input_area, output_buffer):
                         # Extract text
                         lines = state.cached_lines
                         selected_text = []
-                        
+
                         for i in range(start[0], min(end[0] + 1, len(lines))):
                             line_frags = lines[i]
                             line_text = fragment_list_to_text(line_frags)
-                            
+
                             s_col = start[1] if i == start[0] else 0
                             e_col = end[1] + 1 if i == end[0] else len(line_text)
-                            
+
                             selected_text.append(line_text[s_col:e_col])
-                        
+
                         full_text = "\n".join(selected_text)
                         copy_to_clipboard(full_text)
-                        
+
                         # Trigger Notification
                         state.show_notification = True
-                        state.clear() # Clear selection after copy
-                        
+                        state.clear()  # Clear selection after copy
+
                         async def hide_notification():
                             await asyncio.sleep(1.5)
                             state.show_notification = False
@@ -156,9 +175,11 @@ def get_cmd_screen_container(input_area, output_buffer):
 
                         if state.notification_task:
                             state.notification_task.cancel()
-                        state.notification_task = app.create_background_task(hide_notification())
-                        
-                        app.layout.focus(input_area) # Return focus to input
+                        state.notification_task = app.create_background_task(
+                            hide_notification()
+                        )
+
+                        app.layout.focus(input_area)  # Return focus to input
                         app.invalidate()
                         return None
 
@@ -171,7 +192,9 @@ def get_cmd_screen_container(input_area, output_buffer):
         if state.cached_text != current_text:
             state.cached_text = current_text
             # Optimization: Cache the lines structure to avoid re-splitting on every render
-            state.cached_lines = list(split_lines(to_formatted_text(ANSI(current_text))))
+            state.cached_lines = list(
+                split_lines(to_formatted_text(ANSI(current_text)))
+            )
 
         lines = state.cached_lines
         start, end = state.get_sorted_coords()
@@ -188,7 +211,7 @@ def get_cmd_screen_container(input_area, output_buffer):
 
         # Apply highlighting
         new_fragments = []
-        
+
         # 1. Lines before selection
         for i in range(start[0]):
             new_fragments.extend(lines[i])
@@ -208,7 +231,7 @@ def get_cmd_screen_container(input_area, output_buffer):
                 # Check overlap
                 seg_start = current_col
                 seg_end = current_col + text_len
-                
+
                 # Intersection logic
                 highlight_start = max(seg_start, s_col)
                 highlight_end = min(seg_end, e_col + 1)
@@ -217,18 +240,24 @@ def get_cmd_screen_container(input_area, output_buffer):
                     # Split segment
                     pre_len = highlight_start - seg_start
                     mid_len = highlight_end - highlight_start
-                    
+
                     if pre_len > 0:
                         new_fragments.append((style, text[:pre_len], *rest))
-                    
+
                     # Highlighted part (Inverted or Dark Grey bg)
-                    new_fragments.append(("class:selection bg:#333333", text[pre_len:pre_len+mid_len], *rest))
-                    
+                    new_fragments.append(
+                        (
+                            "class:selection bg:#333333",
+                            text[pre_len : pre_len + mid_len],
+                            *rest,
+                        )
+                    )
+
                     if pre_len + mid_len < text_len:
-                        new_fragments.append((style, text[pre_len+mid_len:], *rest))
+                        new_fragments.append((style, text[pre_len + mid_len :], *rest))
                 else:
                     new_fragments.append((style, text, *rest))
-                
+
                 current_col += text_len
             new_fragments.append(("", "\n"))
 
@@ -236,11 +265,11 @@ def get_cmd_screen_container(input_area, output_buffer):
         for i in range(end[0] + 1, len(lines)):
             new_fragments.extend(lines[i])
             new_fragments.append(("", "\n"))
-        
+
         # Remove last newline added by loop
         if new_fragments and new_fragments[-1] == ("", "\n"):
             new_fragments.pop()
-            
+
         return new_fragments
 
     # Output Buffer Window
@@ -256,9 +285,9 @@ def get_cmd_screen_container(input_area, output_buffer):
         height=Dimension(weight=1),  # Takes remaining space
         style="class:output-field",
         wrap_lines=True,
-        always_hide_cursor=False, # Cursor needed for scrolling sync sometimes, but usually hidden by control
+        always_hide_cursor=False,  # Cursor needed for scrolling sync sometimes, but usually hidden by control
     )
-    
+
     # Assign for mouse handler access
     terminal_window = terminal_history
 
@@ -300,6 +329,10 @@ def get_cmd_screen_container(input_area, output_buffer):
         key_bindings=kb,
     )
 
+    # Buffer Status Indicator
+    def get_buffer_status():
+        count = output_buffer.document.line_count
+        return [("fg:ansigreen", f" Buffer: {count}/{MAX_LINES} ")]
 
     # Wrap in FloatContainer for Completions
     return FloatContainer(
@@ -315,12 +348,14 @@ def get_cmd_screen_container(input_area, output_buffer):
                 top=1,
                 content=ConditionalContainer(
                     content=Window(
-                        FormattedTextControl(lambda: [("bold ansigreen", "Copied to clipboard")]),
+                        FormattedTextControl(
+                            lambda: [("bold ansigreen", "Copied to clipboard")]
+                        ),
                         height=1,
-                        align=WindowAlign.CENTER
+                        align=WindowAlign.CENTER,
                     ),
-                    filter=Condition(lambda: state.show_notification)
-                )
+                    filter=Condition(lambda: state.show_notification),
+                ),
             )
-        ],
+        ]
     )
