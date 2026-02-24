@@ -1,5 +1,5 @@
 {
-    "theme": "matrix",
+    "theme": "cyber",
     "window_settings": {
         "cols": 120,
         "lines": 30,
@@ -9,70 +9,9 @@
     "layout_visibility": {
         "performance": {
             "show_sidebar": false,
-            "show_graphs": true,
             "rendered_components": [
                 "graphs"
             ]
-        }
-    },
-    "layout_blueprints": {
-        "mini": {
-            "threshold": 0,
-            "blocks": {
-                "cpu": {
-                    "w": 58,
-                    "h": 12
-                },
-                "gpu": {
-                    "w": 58,
-                    "h": 12
-                },
-                "ram": {
-                    "w": 58,
-                    "h": 12
-                },
-                "network": {
-                    "w": 58,
-                    "h": 12
-                },
-                "details": {
-                    "w": 0,
-                    "h": 0
-                }
-            },
-            "spacers": {
-                "mid_gap": 1,
-                "right_padding": 2
-            }
-        },
-        "full": {
-            "threshold": 124,
-            "blocks": {
-                "cpu": {
-                    "w": 50,
-                    "h": 12
-                },
-                "gpu": {
-                    "w": 50,
-                    "h": 12
-                },
-                "ram": {
-                    "w": 50,
-                    "h": 12
-                },
-                "network": {
-                    "w": 50,
-                    "h": 12
-                },
-                "details": {
-                    "w": 22,
-                    "h": 28
-                }
-            },
-            "spacers": {
-                "mid_gap": 1,
-                "right_padding": 1
-            }
         }
     }
 }
