@@ -90,7 +90,7 @@ def get_cmd_screen_container(input_area, output_buffer):
             VSplit([Window(), content_cluster, Window()]),
             get_footer_container(),
         ],
-        style="bg:#0d1117",
+        style="class:app-background",
         key_bindings=kb,
     )
 

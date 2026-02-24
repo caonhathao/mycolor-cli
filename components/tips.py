@@ -11,7 +11,10 @@ def get_tips_renderable(console_width: int, theme: dict):
 
     tips_base = get_theme_style("primary") + background_style
     tips_text_content = Text.assemble(
-        (f"Tip: Type '/' to get the suggestion command list.", tips_base),
+        (
+            f"Type '/' to get the suggestion command list.\nType '--' to get the suggestion flag list of command.",
+            tips_base,
+        ),
         style=tips_base,
     )
     return tips_text_content
