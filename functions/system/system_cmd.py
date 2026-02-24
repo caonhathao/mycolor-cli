@@ -1,6 +1,6 @@
-from rich.panel import Panel
 from .system_logic import terminate_process, run_new_task, set_startup_state, launch_taskmgr_window
 import functions.theme.theme_logic
+from template.result_response import BaseResponseTemplate
 
 def handle_system_command(log_to_buffer, command_text, app_ref):
     parts = command_text.split()
@@ -10,20 +10,17 @@ def handle_system_command(log_to_buffer, command_text, app_ref):
     secondary_hex = functions.theme.theme_logic.get_pt_color_hex(functions.theme.theme_logic.current_theme["secondary"])
 
     if not flags:
-        log_to_buffer("")
-        help_text = f"""
-[{primary_hex} bold]System Task Manager & Control[/{primary_hex} bold]
-
-[bold white]Usage:[/bold white] /system [flags]
-
-[bold {primary_hex}]Available Flags:[/bold {primary_hex}]
-  [{secondary_hex}]--taskmgr[/]        Open Interactive Task Manager UI
-  [{secondary_hex}]--end-task <pid>[/] Terminate a process by PID
-  [{secondary_hex}]--run-new <cmd>[/]  Start a new process
-  [{secondary_hex}]--d <name>[/]       Disable a startup app
-  [{secondary_hex}]--e <name>[/]       Enable a startup app
-"""
-        log_to_buffer(Panel(help_text.strip(), border_style=primary_hex, title="System Control", width=80))
+        log_to_buffer(BaseResponseTemplate(
+            "System Task Manager & Control",
+            "/system [flags]",
+            {
+                "--taskmgr": "Open Interactive Task Manager UI",
+                "--end-task <pid>": "Terminate a process by PID",
+                "--run-new <cmd>": "Start a new process",
+                "--d <name>": "Disable a startup app",
+                "--e <name>": "Enable a startup app"
+            }
+        ))
         return
 
     if "--taskmgr" in flags:
