@@ -1,9 +1,10 @@
 import functions.theme.theme_logic
 
+
 def BaseResponseTemplate(title, usage, flags_dict):
     """
     Returns a formatted string for command responses using the unified borderless style.
-    
+
     Args:
         title (str): The main header text.
         usage (str): The usage instruction string.
@@ -16,15 +17,15 @@ def BaseResponseTemplate(title, usage, flags_dict):
 
     # Header
     output = f"[{primary_hex} bold]{title}[/{primary_hex} bold]\n\n"
-    
+
     # Usage
-    output += f"[bold white]Usage:[/bold white] {usage}\n\n"
-    
+    output += f"[bold white]Usage:[/bold white] [{secondary_hex} bold]{usage}[/{secondary_hex} bold]\n\n"
+
     # Flags/Options
     if flags_dict:
         output += f"[bold {primary_hex}]Available Flags:[/bold {primary_hex}]\n"
         for flag, desc in flags_dict.items():
             # 2-space indentation
             output += f"  [{secondary_hex}]{flag}[/]    {desc}\n"
-            
+
     return output.strip()

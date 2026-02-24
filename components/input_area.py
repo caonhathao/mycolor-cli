@@ -1,4 +1,6 @@
 import io
+import asyncio
+import os
 from functools import partial
 from rich.console import Console, Group
 from rich import box
@@ -135,7 +137,7 @@ def get_input_text_area(application_ref, console_ref, output_buffer, on_accept=N
         temp_console = Console(file=io.StringIO(), force_terminal=True, width=80)
         temp_console.print(renderable)
         ansi_output = temp_console.file.getvalue().rstrip()
-        
+
         # Fix Buffer Clipping: Use insert_text to keep history
         # We need to bypass read_only constraint of the TextArea
         was_read_only = output_buffer.read_only
@@ -148,6 +150,35 @@ def get_input_text_area(application_ref, console_ref, output_buffer, on_accept=N
         finally:
             output_buffer.read_only = was_read_only
 
+    async def run_system_command(command, log_func, color_hex, app_ref):
+        """Executes a system shell command asynchronously and streams output."""
+        try:
+            process = await asyncio.create_subprocess_shell(
+                command, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+            )
+
+            async def read_stream(stream, is_stderr):
+                while True:
+                    line = await stream.readline()
+                    if not line:
+                        break
+                    try:
+                        decoded = line.decode("utf-8").rstrip()
+                    except UnicodeDecodeError:
+                        decoded = line.decode("cp437", errors="replace").rstrip()
+
+                    if decoded:
+                        style = "bold red" if is_stderr else color_hex
+                        log_func(f"[{style}]{decoded}[/{style}]")
+                        app_ref.invalidate()  # Refresh UI instantly for every line
+
+            await asyncio.gather(
+                read_stream(process.stdout, False), read_stream(process.stderr, True)
+            )
+            await process.wait()
+        except Exception as e:
+            log_func(f"[bold red]Error executing command: {e}[/bold red]")
+
     def accept_input(buff):
         command_text = buff.text.strip()
 
@@ -156,13 +187,14 @@ def get_input_text_area(application_ref, console_ref, output_buffer, on_accept=N
             on_accept(buff)
 
         # Fetch dynamic colors for semantic highlighting
-        primary_hex = functions.theme.theme_logic.get_pt_color_hex(functions.theme.theme_logic.current_theme["primary"])
-        
+        primary_hex = functions.theme.theme_logic.get_pt_color_hex(
+            functions.theme.theme_logic.current_theme["primary"]
+        )
 
         if command_text:
             # Echo the command to history
             # New OpenCode aesthetic: Accent bar + Lighter background
-            
+
             history_line = Text()
             # Part 1: Accent Bar (Purple on Lighter Gray)
             history_line.append("▋", style=f"{primary_hex} on #21262d")
@@ -174,12 +206,12 @@ def get_input_text_area(application_ref, console_ref, output_buffer, on_accept=N
             pad_len = 80 - history_line.cell_len
             if pad_len > 0:
                 history_line.append(" " * pad_len, style="on #21262d")
-            
+
             # Padding line (top/bottom)
             padding_line = Text()
             padding_line.append("▋", style=f"{primary_hex} on #21262d")
             padding_line.append(" " * 79, style="on #21262d")
-            
+
             log_to_buffer(Group(padding_line, history_line, padding_line))
 
         if command_text == "/quit":
@@ -192,17 +224,77 @@ def get_input_text_area(application_ref, console_ref, output_buffer, on_accept=N
             handle_system_command(log_to_buffer, command_text, application_ref)
         elif command_text == "/help":
             handle_help_command(log_to_buffer)
-        elif command_text == "/clear":
+        elif (
+            command_text == "/clear"
+            or command_text.lower() == "cls"
+            or command_text.lower() == "clear"
+        ):
             handle_clear_command(output_buffer)
-        elif command_text: # Not empty
-            log_to_buffer(
-                f"[bold yellow]Command not recognized:[/bold yellow] {command_text}"
+        elif command_text.lower() == "pwd":
+            # 1. Internal 'pwd' Handler
+            cwd = os.getcwd()
+            log_to_buffer(f"[{primary_hex}]{cwd}[/{primary_hex}]")
+        elif command_text.lower() == "ls":
+            # 3. Extend to Other Common Aliases (ls -> dir)
+            application_ref.create_background_task(run_system_command("dir", log_to_buffer, primary_hex, application_ref))
+        elif command_text.lower().startswith("cd"):
+            # 1. Internal 'cd' Handler
+            try:
+                # Handle 'cd..' case
+                if (
+                    command_text.lower() == "cd.."
+                    or command_text.lower().startswith("cd..\\")
+                    or command_text.lower().startswith("cd../")
+                ):
+                    target_dir = command_text[2:].strip()
+                elif command_text.lower().startswith("cd "):
+                    target_dir = command_text[3:].strip()
+                else:
+                    # Fallback for just 'cd' or invalid syntax, let shell handle or ignore
+                    if command_text.lower() == "cd":
+                        log_to_buffer(f"[{primary_hex}]{os.getcwd()}[/{primary_hex}]")
+                        target_dir = None
+                    else:
+                        # Pass through to system shell if it's something like cda
+                        application_ref.create_background_task(
+                            run_system_command(
+                                command_text,
+                                log_to_buffer,
+                                primary_hex,
+                                application_ref,
+                            )
+                        )
+                        target_dir = None
+
+                if target_dir:
+                    # Handle quotes if present
+                    if (target_dir.startswith('"') and target_dir.endswith('"')) or (
+                        target_dir.startswith("'") and target_dir.endswith("'")
+                    ):
+                        target_dir = target_dir[1:-1]
+
+                    # Handle /d flag for windows drive change (python os.chdir handles drive change automatically on windows)
+                    if target_dir.lower().startswith("/d "):
+                        target_dir = target_dir[3:].strip()
+
+                    os.chdir(target_dir)
+                    new_cwd = os.getcwd()
+                    log_to_buffer(
+                        f"[{primary_hex}]Changed directory to: {new_cwd}[/{primary_hex}]"
+                    )
+            except Exception as e:
+                log_to_buffer(f"[bold red]Error changing directory: {e}[/bold red]")
+        elif command_text:  # Not empty
+            application_ref.create_background_task(
+                run_system_command(
+                    command_text, log_to_buffer, primary_hex, application_ref
+                )
             )
-            
+
         if command_text:
             # Add exactly ONE empty line of space after the Result/Output
             log_to_buffer("")
-        
+
         # Clear the buffer for the next command
         buff.reset()
 
