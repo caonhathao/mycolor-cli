@@ -24,8 +24,16 @@ def BaseResponseTemplate(title, usage, flags_dict):
     # Flags/Options
     if flags_dict:
         output += f"[bold {primary_hex}]Available Flags:[/bold {primary_hex}]\n"
+        
+        # Calculate max width for dynamic alignment
+        max_flag_width = 0
+        for flag in flags_dict.keys():
+            max_flag_width = max(max_flag_width, len(flag))
+        
+        gap = 4
+
         for flag, desc in flags_dict.items():
-            # 2-space indentation
-            output += f"  [{secondary_hex}]{flag}[/]    {desc}\n"
+            padding = " " * (max_flag_width - len(flag) + gap)
+            output += f"  [{secondary_hex}]{flag}[/{secondary_hex}]{padding}[white]{desc}[/white]\n"
 
     return output.strip()

@@ -9,4 +9,4 @@ def handle_help_command(log_to_buffer):
     
     log_to_buffer("")
     log_to_buffer(f"[bold {primary_hex}]Available commands:[/bold {primary_hex}]")
-    log_to_buffer(f"  [bold {secondary_hex}]/theme, /sysinfo, /quit, /help, /clear[/bold {secondary_hex}]")
+    log_to_buffer(f"  [bold {secondary_hex}]/theme, /sysinfo, /copy, /quit, /help, /clear[/bold {secondary_hex}]")

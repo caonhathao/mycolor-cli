@@ -12,10 +12,10 @@ def handle_theme_command(command_text, log_to_buffer, app_ref):
             {
                 "--style <name>": "Set a specific theme",
                 "--list": "List available themes",
-                "--help": "Show detailed help"
+                "-h, --help": "Show this guide"
             }
         ))
-    elif len(parts) == 2 and parts[1] == "--help":
+    elif len(parts) == 2 and (parts[1] == "--help" or parts[1] == "-h"):
         # Reuse the base template for help as well for consistency
         handle_theme_command("/theme", log_to_buffer, app_ref)
     elif len(parts) == 2 and parts[1] == "--list":
@@ -32,4 +32,4 @@ def handle_theme_command(command_text, log_to_buffer, app_ref):
         else:
             log_to_buffer(f"[bold red]Error: Theme '{style_name}' not found. Use /theme --list to see options.[/bold red]")
     else:
-        log_to_buffer("[bold red]Error: Invalid arguments. Use /theme --help for usage.[/bold red]")
+        log_to_buffer("[bold red]Error: Invalid arguments. Use /theme -h or /theme --help for usage.[/bold red]")

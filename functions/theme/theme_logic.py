@@ -71,15 +71,25 @@ def load_config():
                 theme_name = config.get("theme", DEFAULT_THEME)
                 if theme_name in THEMES:
                     current_theme_name = theme_name
-                    current_theme = THEMES[current_theme_name]
+                    current_theme = THEMES[theme_name]
                 
                 # Window Settings
                 if "window_settings" in config:
                     current_window_settings.update(config["window_settings"])
                 else:
                     save_config()
+                
+                # Validate log directory
+                log_path = config.get("log_export_path")
+                if log_path:
+                    log_dir = os.path.dirname(log_path)
+                    if log_dir:
+                        os.makedirs(log_dir, exist_ok=True)
         else:
             save_config()
+            # Create default log directory
+            default_log = os.path.join(os.path.expanduser("~"), "Documents", "mycolor", "log")
+            os.makedirs(default_log, exist_ok=True)
     except Exception:
         pass
 

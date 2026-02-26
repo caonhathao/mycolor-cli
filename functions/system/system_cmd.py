@@ -18,7 +18,23 @@ def handle_system_command(log_to_buffer, command_text, app_ref):
                 "--end-task <pid>": "Terminate a process by PID",
                 "--run-new <cmd>": "Start a new process",
                 "--d <name>": "Disable a startup app",
-                "--e <name>": "Enable a startup app"
+                "--e <name>": "Enable a startup app",
+                "-h, --help": "Show this guide"
+            }
+        ))
+        return
+
+    if "-h" in flags or "--help" in flags:
+        log_to_buffer(BaseResponseTemplate(
+            "System Task Manager & Control",
+            "/system [flags]",
+            {
+                "--taskmgr": "Open Interactive Task Manager UI",
+                "--end-task <pid>": "Terminate a process by PID",
+                "--run-new <cmd>": "Start a new process",
+                "--d <name>": "Disable a startup app",
+                "--e <name>": "Enable a startup app",
+                "-h, --help": "Show this guide"
             }
         ))
         return

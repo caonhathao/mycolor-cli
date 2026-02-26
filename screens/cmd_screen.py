@@ -20,10 +20,13 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.keys import Keys
 from prompt_toolkit.mouse_events import MouseEventType, MouseButton
 from prompt_toolkit.filters import Condition
+from rich.console import Console
+import io
 
 from components.footer import get_footer_container
 from components.input_area import RoundedFrame
 from utils.clipboard_manager import copy_to_clipboard
+import functions.theme.theme_logic
 
 
 def get_cmd_screen_container(input_area, output_buffer):
@@ -36,7 +39,7 @@ def get_cmd_screen_container(input_area, output_buffer):
     output_buffer.read_only = True
 
     # 1. Increase Buffer Limit & Efficiency (Circular Buffer)
-    MAX_LINES = 2000
+    MAX_LINES = 2500
 
     def enforce_buffer_limit(_=None):
         if output_buffer.document.line_count > MAX_LINES:
@@ -53,135 +56,91 @@ def get_cmd_screen_container(input_area, output_buffer):
     # Hook into text changed event
     output_buffer.buffer.on_text_changed += enforce_buffer_limit
 
-    # --- Selection & Notification State ---
-    class SelectionState:
+    # --- Notification State ---
+    class NotificationState:
         def __init__(self):
-            self.start_coord = None  # (logical_line_idx, logical_col_idx)
-            self.end_coord = None
-            self.is_selecting = False
-            self.cached_text = None
-            self.cached_lines = None
-
-            # Notification state
             self.show_notification = False
             self.notification_task = None
-
-        def clear(self):
-            self.start_coord = None
-            self.end_coord = None
-            self.is_selecting = False
-
+            self.notification_message = ""
+            self.cached_text = ""
+            self.cached_lines = []
+        
         def get_sorted_coords(self):
-            if not self.start_coord or not self.end_coord:
-                return None, None
-            if self.start_coord > self.end_coord:
-                return self.end_coord, self.start_coord
-            return self.start_coord, self.end_coord
+            return None, None
 
-    state = SelectionState()
+    state = NotificationState()
     terminal_window = None  # Reference to the window for render info
+
+    def trigger_notification(message, is_success=True):
+        """Trigger a notification to display."""
+        
+        # Color selection based on status (Theme Integration)
+        try:
+            # Use standard rich colors that align with project classes
+            # Success -> Green, Error -> Red
+            color = "class:success" if is_success else "class:error"
+        except:
+            color = "class:success" if is_success else "class:error"
+        
+        # Box Construction
+        border = "┃"
+        h_padding = "    " # Exactly 4 spaces horizontal padding
+        
+        # Calculate dimensions
+        content_len = len(message)
+        inner_width = content_len + 8 # 4 spaces left + 4 spaces right
+        
+        empty_line = f"{border}{' ' * inner_width}{border}"
+        content_line = f"{border}{h_padding}{message}{h_padding}{border}"
+        
+        # Construct ANSI string using Rich
+        # Exactly 3 lines: Top Padding, Content, Bottom Padding
+        box_markup = f"[{color}]{empty_line}\n{content_line}\n{empty_line}[/{color}]"
+        
+        console = Console(file=io.StringIO(), force_terminal=True, width=200)
+        console.print(box_markup, end="")
+        
+        state.notification_message = console.file.getvalue()
+        state.show_notification = True
+        
+        # Persistence with 5s timeout
+        async def hide_notification():
+            await asyncio.sleep(5)
+            state.show_notification = False
+            state.notification_message = ""
+            get_app().invalidate()
+            
+        app = get_app()
+        if state.notification_task:
+            state.notification_task.cancel()
+        state.notification_task = app.create_background_task(hide_notification())
+
+    def clear_notification():
+        """Clear the current notification."""
+        state.show_notification = False
+        state.notification_message = ""
+
+    # Store trigger function globally for access from input_area
+    import sys
+    sys.modules[__name__]._notification_trigger = trigger_notification
+    sys.modules[__name__]._notification_clear = clear_notification
 
     # Helper to sync cursor with output_buffer's cursor (allows manual scrolling)
     def get_buffer_cursor_position():
         return Point(x=0, y=output_buffer.document.cursor_position_row)
 
-    # --- Mouse Handler ---
+    # --- Mouse Handler (Scroll Only - Selection Disabled) ---
     def history_mouse_handler(mouse_event):
-        # Handle Scrolling
+        # Handle Scrolling Only - Selection and Right-Click Disabled
         if mouse_event.event_type == MouseEventType.SCROLL_UP:
             output_buffer.buffer.cursor_up(count=20)
             return None
         elif mouse_event.event_type == MouseEventType.SCROLL_DOWN:
             output_buffer.buffer.cursor_down(count=20)
             return None
-
-        # Handle Selection
-        app = get_app()
-
-        # 1. Correct Render Info Access & 2. Prevent Race Conditions
-        render_info = terminal_window.render_info
-        if not render_info:
-            return NotImplemented
-
-        # Map visual coordinates to logical text coordinates
-        visual_y = mouse_event.position.y
-        visual_x = mouse_event.position.x
-
-        if visual_y < len(render_info.displayed_lines):
-            logical_line_idx = render_info.displayed_lines[visual_y]
-
-            # Calculate logical column (accounting for wrapping)
-            # Count how many times this line index appeared above in the current view
-            wrap_offset = 0
-            for y in range(visual_y - 1, -1, -1):
-                if render_info.displayed_lines[y] == logical_line_idx:
-                    wrap_offset += 1
-                else:
-                    break
-
-            logical_col_idx = visual_x + (wrap_offset * render_info.window_width)
-            current_coord = (logical_line_idx, logical_col_idx)
-
-            if mouse_event.event_type == MouseEventType.MOUSE_DOWN:
-                if mouse_event.button == MouseButton.LEFT:
-                    app.layout.focus(terminal_window)  # Explicit focus
-                    state.is_selecting = True
-                    state.start_coord = current_coord
-                    state.end_coord = current_coord
-                    app.invalidate()
-                    return None
-
-            elif mouse_event.event_type == MouseEventType.MOUSE_MOVE:
-                if state.is_selecting:
-                    state.end_coord = current_coord
-                    app.invalidate()
-                    return None
-
-            elif mouse_event.event_type == MouseEventType.MOUSE_UP:
-                if state.is_selecting:
-                    state.is_selecting = False
-                    state.end_coord = current_coord
-                    app.invalidate()
-                    return None
-
-                # Right click to copy
-                if mouse_event.button == MouseButton.RIGHT and state.start_coord:
-                    start, end = state.get_sorted_coords()
-                    if start and end and state.cached_lines:
-                        # Extract text
-                        lines = state.cached_lines
-                        selected_text = []
-
-                        for i in range(start[0], min(end[0] + 1, len(lines))):
-                            line_frags = lines[i]
-                            line_text = fragment_list_to_text(line_frags)
-
-                            s_col = start[1] if i == start[0] else 0
-                            e_col = end[1] + 1 if i == end[0] else len(line_text)
-
-                            selected_text.append(line_text[s_col:e_col])
-
-                        full_text = "\n".join(selected_text)
-                        copy_to_clipboard(full_text)
-
-                        # Trigger Notification
-                        state.show_notification = True
-                        state.clear()  # Clear selection after copy
-
-                        async def hide_notification():
-                            await asyncio.sleep(1.5)
-                            state.show_notification = False
-                            app.invalidate()
-
-                        if state.notification_task:
-                            state.notification_task.cancel()
-                        state.notification_task = app.create_background_task(
-                            hide_notification()
-                        )
-
-                        app.layout.focus(input_area)  # Return focus to input
-                        app.invalidate()
-                        return None
+        
+        # Disable all other mouse interactions (selection, right-click)
+        return NotImplemented
 
         return NotImplemented
 
@@ -294,6 +253,10 @@ def get_cmd_screen_container(input_area, output_buffer):
     # Key bindings for scrolling the history
     kb = KeyBindings()
 
+    @kb.add("tab")
+    def _(event):
+        pass  # Disable Tab key - prevent focus switching
+
     @kb.add("pageup")
     def _(event):
         output_buffer.buffer.cursor_up(count=10)
@@ -349,9 +312,9 @@ def get_cmd_screen_container(input_area, output_buffer):
                 content=ConditionalContainer(
                     content=Window(
                         FormattedTextControl(
-                            lambda: [("bold ansigreen", "Copied to clipboard")]
+                            text=lambda: ANSI(state.notification_message)
                         ),
-                        height=1,
+                        height=Dimension(min=1),
                         align=WindowAlign.CENTER,
                     ),
                     filter=Condition(lambda: state.show_notification),
@@ -359,3 +322,18 @@ def get_cmd_screen_container(input_area, output_buffer):
             )
         ]
     )
+
+
+def get_notification_trigger():
+    """Returns the notification trigger function from cmd_screen module."""
+    import screens.cmd_screen as cmd_module
+    if hasattr(cmd_module, '_notification_trigger'):
+        return cmd_module._notification_trigger
+    return None
+
+def get_notification_clearer():
+    """Returns the notification clear function from cmd_screen module."""
+    import screens.cmd_screen as cmd_module
+    if hasattr(cmd_module, '_notification_clear'):
+        return cmd_module._notification_clear
+    return None
