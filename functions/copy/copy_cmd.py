@@ -1,8 +1,6 @@
 import os
 import json
-import datetime
 from template.result_response import BaseResponseTemplate
-import functions.theme.theme_logic
 from .copy_logic import copy_last_n_pairs, export_history_to_file
 
 
