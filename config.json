@@ -1,5 +1,5 @@
 {
-    "theme": "classic",
+    "theme": "matrix",
     "window_settings": {
         "cols": 120,
         "lines": 30,
@@ -13,5 +13,6 @@
                 "graphs"
             ]
         }
-    }
+    },
+    "last_export_path": ""
 }

@@ -30,7 +30,9 @@ from functions.system.system_cmd import handle_system_command
 from functions.help import handle_help_command
 from functions.quit import handle_quit_command
 from functions.clear import handle_clear_command
+from functions.copy.copy_cmd import handle_copy_command
 from components.completer import DynamicCommandCompleter
+from modules.tracker.history_tracker import get_history_tracker
 
 
 class RoundedBorder:
@@ -132,11 +134,19 @@ def get_input_text_area(application_ref, console_ref, output_buffer, on_accept=N
     """
     command_completer = DynamicCommandCompleter()
 
-    def log_to_buffer(renderable):
+    def log_to_buffer(renderable, save_to_history=True):
         """Renders a Rich object to ANSI string and appends to output buffer."""
         temp_console = Console(file=io.StringIO(), force_terminal=True, width=80)
         temp_console.print(renderable)
         ansi_output = temp_console.file.getvalue().rstrip()
+
+        # Shadow History Capture
+        if save_to_history:
+            # Render to plain text for history
+            txt_console = Console(file=io.StringIO(), force_terminal=True, width=80, color_system=None)
+            txt_console.print(renderable)
+            plain_text = txt_console.file.getvalue()
+            get_history_tracker().append_result(plain_text)
 
         # Fix Buffer Clipping: Use insert_text to keep history
         # We need to bypass read_only constraint of the TextArea
@@ -152,6 +162,9 @@ def get_input_text_area(application_ref, console_ref, output_buffer, on_accept=N
 
     async def run_system_command(command, log_func, color_hex, app_ref):
         """Executes a system shell command asynchronously and streams output."""
+        # Start tracking this command in history
+        get_history_tracker().start_new_entry(command)
+
         try:
             process = await asyncio.create_subprocess_shell(
                 command, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
@@ -169,7 +182,8 @@ def get_input_text_area(application_ref, console_ref, output_buffer, on_accept=N
 
                     if decoded:
                         style = "bold red" if is_stderr else color_hex
-                        log_func(f"[{style}]{decoded}[/{style}]")
+                        # Log to buffer and let it handle history capture
+                        log_func(f"[{style}]{decoded}[/{style}]", save_to_history=True)
                         app_ref.invalidate()  # Refresh UI instantly for every line
 
             await asyncio.gather(
@@ -186,12 +200,37 @@ def get_input_text_area(application_ref, console_ref, output_buffer, on_accept=N
         if on_accept:
             on_accept(buff)
 
+        # Clear any persistent notifications from previous commands
+        from screens.cmd_screen import get_notification_clearer
+        clear_notification = get_notification_clearer()
+        if clear_notification:
+            clear_notification()
+
         # Fetch dynamic colors for semantic highlighting
         primary_hex = functions.theme.theme_logic.get_pt_color_hex(
             functions.theme.theme_logic.current_theme["primary"]
         )
 
         if command_text:
+            # Check if this is a help request (should not be recorded in history)
+            is_help_request = (
+                command_text.startswith("/theme") and (" -h " in command_text or command_text.endswith(" -h") or " --help" in command_text or command_text.endswith(" --help"))
+            ) or (
+                command_text.startswith("/system") and (" -h " in command_text or command_text.endswith(" -h") or " --help" in command_text or command_text.endswith(" --help"))
+            ) or (
+                command_text.startswith("/sysinfo") and (" -h " in command_text or command_text.endswith(" -h") or " --help" in command_text or command_text.endswith(" --help"))
+            ) or (
+                command_text == "/theme -h" or command_text == "/theme --help"
+            ) or (
+                command_text == "/system -h" or command_text == "/system --help"
+            ) or (
+                command_text == "/sysinfo -h" or command_text == "/sysinfo --help"
+            )
+
+            # 1. Start History Entry (skip for help requests)
+            if not command_text.startswith("/copy") and not is_help_request:
+                get_history_tracker().start_new_entry(command_text)
+
             # Echo the command to history
             # New OpenCode aesthetic: Accent bar + Lighter background
 
@@ -212,7 +251,7 @@ def get_input_text_area(application_ref, console_ref, output_buffer, on_accept=N
             padding_line.append("▋", style=f"{primary_hex} on #21262d")
             padding_line.append(" " * 79, style="on #21262d")
 
-            log_to_buffer(Group(padding_line, history_line, padding_line))
+            log_to_buffer(Group(padding_line, history_line, padding_line), save_to_history=False)
 
         if command_text == "/quit":
             application_ref.exit()
@@ -224,6 +263,10 @@ def get_input_text_area(application_ref, console_ref, output_buffer, on_accept=N
             handle_system_command(log_to_buffer, command_text, application_ref)
         elif command_text == "/help":
             handle_help_command(log_to_buffer)
+        elif command_text.startswith("/copy"):
+            from screens.cmd_screen import get_notification_trigger
+            notification_trigger = get_notification_trigger()
+            handle_copy_command(command_text, partial(log_to_buffer, save_to_history=False), output_buffer, notification_trigger)
         elif (
             command_text == "/clear"
             or command_text.lower() == "cls"
@@ -293,7 +336,7 @@ def get_input_text_area(application_ref, console_ref, output_buffer, on_accept=N
 
         if command_text:
             # Add exactly ONE empty line of space after the Result/Output
-            log_to_buffer("")
+            log_to_buffer("", save_to_history=False)
 
         # Clear the buffer for the next command
         buff.reset()

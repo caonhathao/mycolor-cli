@@ -42,12 +42,12 @@ def handle_sysinfo_command(log_to_buffer, command_text=""):
                 "--disk": "Storage Devices",
                 "--display": "Graphics Devices",
                 "--input": "Peripherals",
-                "--help": "Show this guide"
+                "-h, --help": "Show this guide"
             }
         ))
         return
 
-    if "--help" in flags:
+    if "--help" in flags or "-h" in flags:
         handle_sysinfo_command(log_to_buffer, "/sysinfo")
         return
 
