@@ -1,7 +1,6 @@
 import asyncio
 import psutil
 import socket
-import os
 import time
 import shutil
 import json
@@ -9,10 +8,8 @@ from prompt_toolkit.formatted_text import ANSI
 from rich.table import Table
 import datetime
 from rich.console import Console
-from rich.console import Group
 from rich.panel import Panel
 from rich.align import Align
-from rich.text import Text
 import io
 
 from functions.system.system_logic import get_processes, get_startup_apps

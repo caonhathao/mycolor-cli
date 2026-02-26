@@ -12,20 +12,18 @@ from prompt_toolkit.layout.containers import (
 from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.layout.dimension import Dimension
 from prompt_toolkit.formatted_text import ANSI, to_formatted_text, split_lines
-from prompt_toolkit.formatted_text.utils import fragment_list_to_text
 from prompt_toolkit.layout.menus import CompletionsMenu
 from prompt_toolkit.data_structures import Point
 from prompt_toolkit.document import Document
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.keys import Keys
-from prompt_toolkit.mouse_events import MouseEventType, MouseButton
+from prompt_toolkit.mouse_events import MouseEventType
 from prompt_toolkit.filters import Condition
 from rich.console import Console
 import io
 
 from components.footer import get_footer_container
 from components.input_area import RoundedFrame
-from utils.clipboard_manager import copy_to_clipboard
 import functions.theme.theme_logic
 
 
@@ -140,8 +138,6 @@ def get_cmd_screen_container(input_area, output_buffer):
             return None
         
         # Disable all other mouse interactions (selection, right-click)
-        return NotImplemented
-
         return NotImplemented
 
     # --- Content Generation with Highlighting ---

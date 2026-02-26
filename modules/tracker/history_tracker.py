@@ -1,7 +1,3 @@
-import datetime
-import json
-import os
-
 class HistoryTracker:
     """Stores command-result pairs in structured format, separate from UI rendering."""
     

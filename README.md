@@ -74,4 +74,21 @@ The project follows a strict separation of concerns to ensure maintainability:
 
 ---
 
+## 📁 Project Structure
+
+```
+myworld.py           # Entry point, main app loop
+config.json          # Theme and window settings
+run.bat              # Launch script
+components/          # UI widgets (input_area, footer, logo, tips, completer)
+screens/             # Screen logic (intro, cmd, taskmgr)
+layout/              # Layout definitions (VSplit/HSplit containers)
+functions/           # Command handlers (theme, sysinfo, system, help, clear, quit)
+modules/monitors/   # System monitors (cpu, ram, gpu, net)
+utils/               # Utilities (clipboard_manager)
+template/            # Response templates
+```
+
+---
+
 *Built with ❤️ for the Command Line.*

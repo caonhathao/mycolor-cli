@@ -1,6 +1,5 @@
 from rich.table import Table
 from .theme_logic import set_theme, get_app_style, THEMES
-import functions.theme.theme_logic
 from template.result_response import BaseResponseTemplate
 
 def handle_theme_command(command_text, log_to_buffer, app_ref):

@@ -1,6 +1,5 @@
 import psutil
 import subprocess
-import platform
 import os
 import sys
 

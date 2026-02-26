@@ -3,11 +3,10 @@ from prompt_toolkit.layout.containers import HSplit, Window
 from prompt_toolkit.layout.layout import Layout
 from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.layout.dimension import Dimension
-from prompt_toolkit.widgets import Frame
-from prompt_toolkit.formatted_text import ANSI, to_formatted_text
+from prompt_toolkit.formatted_text import ANSI
 from prompt_toolkit.layout.margins import ScrollbarMargin
 
-from components.footer import get_footer_left, get_footer_right
+from components.footer import get_footer_container
 from components.input_area import RoundedFrame
 import functions.theme.theme_logic
 
@@ -32,18 +31,14 @@ def get_main_layout(input_area, output_buffer, console):
         right_margins=[ScrollbarMargin(display_arrows=True)]
     )
 
-    # Footer
-    # Using a simple Window with formatted text that joins left and right parts
-    def get_footer_text():
-        # Simple join for now, or use VSplit if complex alignment needed. 
-        # But VSplit inside HSplit is standard.
-        return get_footer_left() + [("class:sep", " | ")] + get_footer_right()
+    # Footer - using the container directly
+    footer = get_footer_container()
 
     # --- Sticky Bottom Layout ---
     root_container = HSplit([ 
         terminal_history,
         RoundedFrame(input_area, title="Input"),
-        Window(content=FormattedTextControl(get_footer_text), height=1, style="class:footer-pad")
+        footer
     ], style="class:app-background", width=Dimension(min=width), height=Dimension(min=ts.lines))
 
     return Layout(root_container, focused_element=input_area)

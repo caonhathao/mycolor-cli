@@ -1,5 +1,3 @@
-import shutil
-import sys
 from prompt_toolkit.layout.containers import (
     HSplit,
     VSplit,

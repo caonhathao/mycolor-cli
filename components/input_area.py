@@ -2,14 +2,11 @@ import io
 import asyncio
 import os
 from functools import partial
+
 from rich.console import Console, Group
-from rich import box
 from rich.text import Text
 
-from prompt_toolkit.buffer import Buffer
-from prompt_toolkit.document import Document
 from prompt_toolkit.key_binding import KeyBindings
-from prompt_toolkit.layout.controls import BufferControl
 from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.widgets import TextArea, Frame, Label
@@ -28,7 +25,6 @@ from functions.theme.theme_cmd import handle_theme_command
 from functions.sysinfo.sysinfo_cmd import handle_sysinfo_command
 from functions.system.system_cmd import handle_system_command
 from functions.help import handle_help_command
-from functions.quit import handle_quit_command
 from functions.clear import handle_clear_command
 from functions.copy.copy_cmd import handle_copy_command
 from components.completer import DynamicCommandCompleter
@@ -143,7 +139,9 @@ def get_input_text_area(application_ref, console_ref, output_buffer, on_accept=N
         # Shadow History Capture
         if save_to_history:
             # Render to plain text for history
-            txt_console = Console(file=io.StringIO(), force_terminal=True, width=80, color_system=None)
+            txt_console = Console(
+                file=io.StringIO(), force_terminal=True, width=80, color_system=None
+            )
             txt_console.print(renderable)
             plain_text = txt_console.file.getvalue()
             get_history_tracker().append_result(plain_text)
@@ -202,6 +200,7 @@ def get_input_text_area(application_ref, console_ref, output_buffer, on_accept=N
 
         # Clear any persistent notifications from previous commands
         from screens.cmd_screen import get_notification_clearer
+
         clear_notification = get_notification_clearer()
         if clear_notification:
             clear_notification()
@@ -214,17 +213,36 @@ def get_input_text_area(application_ref, console_ref, output_buffer, on_accept=N
         if command_text:
             # Check if this is a help request (should not be recorded in history)
             is_help_request = (
-                command_text.startswith("/theme") and (" -h " in command_text or command_text.endswith(" -h") or " --help" in command_text or command_text.endswith(" --help"))
-            ) or (
-                command_text.startswith("/system") and (" -h " in command_text or command_text.endswith(" -h") or " --help" in command_text or command_text.endswith(" --help"))
-            ) or (
-                command_text.startswith("/sysinfo") and (" -h " in command_text or command_text.endswith(" -h") or " --help" in command_text or command_text.endswith(" --help"))
-            ) or (
-                command_text == "/theme -h" or command_text == "/theme --help"
-            ) or (
-                command_text == "/system -h" or command_text == "/system --help"
-            ) or (
-                command_text == "/sysinfo -h" or command_text == "/sysinfo --help"
+                (
+                    command_text.startswith("/theme")
+                    and (
+                        " -h " in command_text
+                        or command_text.endswith(" -h")
+                        or " --help" in command_text
+                        or command_text.endswith(" --help")
+                    )
+                )
+                or (
+                    command_text.startswith("/system")
+                    and (
+                        " -h " in command_text
+                        or command_text.endswith(" -h")
+                        or " --help" in command_text
+                        or command_text.endswith(" --help")
+                    )
+                )
+                or (
+                    command_text.startswith("/sysinfo")
+                    and (
+                        " -h " in command_text
+                        or command_text.endswith(" -h")
+                        or " --help" in command_text
+                        or command_text.endswith(" --help")
+                    )
+                )
+                or (command_text == "/theme -h" or command_text == "/theme --help")
+                or (command_text == "/system -h" or command_text == "/system --help")
+                or (command_text == "/sysinfo -h" or command_text == "/sysinfo --help")
             )
 
             # 1. Start History Entry (skip for help requests)
@@ -251,7 +269,9 @@ def get_input_text_area(application_ref, console_ref, output_buffer, on_accept=N
             padding_line.append("▋", style=f"{primary_hex} on #21262d")
             padding_line.append(" " * 79, style="on #21262d")
 
-            log_to_buffer(Group(padding_line, history_line, padding_line), save_to_history=False)
+            log_to_buffer(
+                Group(padding_line, history_line, padding_line), save_to_history=False
+            )
 
         if command_text == "/quit":
             application_ref.exit()
@@ -265,8 +285,14 @@ def get_input_text_area(application_ref, console_ref, output_buffer, on_accept=N
             handle_help_command(log_to_buffer)
         elif command_text.startswith("/copy"):
             from screens.cmd_screen import get_notification_trigger
+
             notification_trigger = get_notification_trigger()
-            handle_copy_command(command_text, partial(log_to_buffer, save_to_history=False), output_buffer, notification_trigger)
+            handle_copy_command(
+                command_text,
+                partial(log_to_buffer, save_to_history=False),
+                output_buffer,
+                notification_trigger,
+            )
         elif (
             command_text == "/clear"
             or command_text.lower() == "cls"
@@ -279,7 +305,9 @@ def get_input_text_area(application_ref, console_ref, output_buffer, on_accept=N
             log_to_buffer(f"[{primary_hex}]{cwd}[/{primary_hex}]")
         elif command_text.lower() == "ls":
             # 3. Extend to Other Common Aliases (ls -> dir)
-            application_ref.create_background_task(run_system_command("dir", log_to_buffer, primary_hex, application_ref))
+            application_ref.create_background_task(
+                run_system_command("dir", log_to_buffer, primary_hex, application_ref)
+            )
         elif command_text.lower().startswith("cd"):
             # 1. Internal 'cd' Handler
             try:
