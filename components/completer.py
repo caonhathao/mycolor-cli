@@ -1,6 +1,8 @@
 import os
+
 from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.document import Document
+
 from functions.theme.theme_logic import THEMES
 
 
@@ -26,7 +28,7 @@ class DynamicCommandCompleter(Completer):
                 "--d",
                 "--e",
                 "--help",
-                "--h",
+                "-h",
             ],
             "/copy": ["--last", "--export", "--help", "-h"],
             "/help": [],
@@ -48,9 +50,9 @@ class DynamicCommandCompleter(Completer):
                         cmd = f"/{item}"
                         if cmd not in self.commands:
                             self.commands[cmd] = [
-                                "--help"
+                                "--help", "-h"
                             ]  # Default flag for discovered commands
-        except Exception:
+        except OSError:
             pass
 
     def get_completions(self, document: Document, complete_event):

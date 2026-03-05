@@ -1,7 +1,8 @@
 import json
 import os
-from rich.style import Style
+
 from prompt_toolkit.styles import Style as PTStyle
+from rich.style import Style
 
 # --- Themes ---
 THEMES = {
@@ -31,111 +32,62 @@ THEMES = {
     },
 }
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-CONFIG_FILE = os.path.join(BASE_DIR, "config.json")
 DEFAULT_THEME = "matrix"
-DEFAULT_WINDOW_SETTINGS = {
-    "cols": 124,
-    "lines": 30,
-    "auto_resize": True,
-    "force_full_width": True
-}
 
 current_theme_name = DEFAULT_THEME
 current_theme = THEMES[current_theme_name]
-current_window_settings = DEFAULT_WINDOW_SETTINGS.copy()
 
 
-def save_config():
-    """Saves the current config to config.json."""
-    try:
-        config = {
-            "theme": current_theme_name,
-            "window_settings": current_window_settings
-        }
-        with open(CONFIG_FILE, "w") as f:
-            json.dump(config, f, indent=4)
-    except Exception:
-        pass
+def set_theme(theme_name):
+    """Sets the current theme."""
+    global current_theme_name, current_theme
+    if theme_name in THEMES:
+        current_theme_name = theme_name
+        current_theme = THEMES[current_theme_name]
+        return True
+    return False
 
 
 def load_config():
-    """Loads the full config from config.json."""
-    global current_theme_name, current_theme, current_window_settings
+    """Loads theme from config.json."""
     try:
-        if os.path.exists(CONFIG_FILE):
-            with open(CONFIG_FILE, "r") as f:
-                config = json.load(f)
-                
-                # Theme
-                theme_name = config.get("theme", DEFAULT_THEME)
-                if theme_name in THEMES:
-                    current_theme_name = theme_name
-                    current_theme = THEMES[theme_name]
-                
-                # Window Settings
-                if "window_settings" in config:
-                    current_window_settings.update(config["window_settings"])
-                else:
-                    save_config()
-                
-                # Validate log directory
-                log_path = config.get("log_export_path")
-                if log_path:
-                    log_dir = os.path.dirname(log_path)
-                    if log_dir:
-                        os.makedirs(log_dir, exist_ok=True)
-        else:
-            save_config()
-            # Create default log directory
-            default_log = os.path.join(os.path.expanduser("~"), "Documents", "mycolor", "log")
-            os.makedirs(default_log, exist_ok=True)
-    except Exception:
-        pass
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        config_path = os.path.join(base_dir, "config.json")
+        with open(config_path, "r") as f:
+            config = json.load(f)
+            theme_name = config.get("theme")
+            if theme_name:
+                set_theme(theme_name)
+    except (IOError, json.JSONDecodeError):
+        pass # Use default theme if config is missing or invalid
 
 
-def load_theme():
-    """Legacy alias for load_config."""
-    load_config()
+def get_current_theme():
+    return current_theme
 
 
-def save_theme(theme_name):
-    """Sets the current theme and saves it."""
-    global current_theme_name, current_theme
-    if theme_name in THEMES:
-        current_theme_name = theme_name
-        current_theme = THEMES[current_theme_name]
-        save_config()
-        return True
-    return False
-
-def set_theme(theme_name):
-    """Sets the current theme and saves it."""
-    global current_theme_name, current_theme
-    if theme_name in THEMES:
-        current_theme_name = theme_name
-        current_theme = THEMES[current_theme_name]
-        save_config()
-        return True
-    return False
+def get_current_theme_colors():
+    """Returns a dictionary of hex colors for the current theme."""
+    primary_hex = get_pt_color_hex(current_theme["primary"])
+    secondary_hex = get_pt_color_hex(current_theme["secondary"])
+    return {"primary": primary_hex, "secondary": secondary_hex}
 
 
 def get_pt_color_hex(rich_style: Style) -> str:
     """Converts a rich.Style's color to prompt_toolkit-compatible 6-char hex. No alpha."""
-    try:
-        if rich_style and rich_style.color:
+    if rich_style and rich_style.color:
+        try:
             color_obj = rich_style.color
             triplet = color_obj.get_truecolor()
             return f"#{triplet.red:02x}{triplet.green:02x}{triplet.blue:02x}"
-    except Exception:
-        pass
+        except Exception:
+            pass  # Fallback on error
     return "#c0c0c0"  # fallback
 
 
 def get_app_style():
     """Returns the prompt_toolkit Style object based on the current theme."""
     primary_hex = get_pt_color_hex(current_theme['primary'])
-    secondary_hex = get_pt_color_hex(current_theme['secondary'])
     suggestion_bg = current_theme.get("suggestion_bg", "#21262d")
     return PTStyle.from_dict(
         {

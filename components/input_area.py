@@ -122,7 +122,7 @@ class RoundedFrame(Frame):
         return self.container
 
 
-def get_input_text_area(application_ref, console_ref, output_buffer, on_accept=None):
+def get_input_text_area(application_ref, output_buffer, on_accept=None):
     """
     Returns a configured TextArea widget for the input area.
     Requires a reference to the main prompt_toolkit Application to invalidate it for redraws,
@@ -132,18 +132,23 @@ def get_input_text_area(application_ref, console_ref, output_buffer, on_accept=N
 
     def log_to_buffer(renderable, save_to_history=True):
         """Renders a Rich object to ANSI string and appends to output buffer."""
-        temp_console = Console(file=io.StringIO(), force_terminal=True, width=80)
+        buffer = io.StringIO()
+        temp_console = Console(file=buffer, force_terminal=True, width=80)
         temp_console.print(renderable)
-        ansi_output = temp_console.file.getvalue().rstrip()
+        ansi_output = buffer.getvalue().rstrip()
 
         # Shadow History Capture
         if save_to_history:
             # Render to plain text for history
+            buffer = io.StringIO()
             txt_console = Console(
-                file=io.StringIO(), force_terminal=True, width=80, color_system=None
+                file=buffer, 
+                force_terminal=True, 
+                width=80, 
+                color_system=None
             )
             txt_console.print(renderable)
-            plain_text = txt_console.file.getvalue()
+            plain_text = buffer.getvalue()
             get_history_tracker().append_result(plain_text)
 
         # Fix Buffer Clipping: Use insert_text to keep history
@@ -280,7 +285,7 @@ def get_input_text_area(application_ref, console_ref, output_buffer, on_accept=N
         elif command_text.startswith("/sysinfo"):
             handle_sysinfo_command(log_to_buffer, command_text)
         elif command_text.startswith("/system"):
-            handle_system_command(log_to_buffer, command_text, application_ref)
+            handle_system_command(log_to_buffer, command_text)
         elif command_text == "/help":
             handle_help_command(log_to_buffer)
         elif command_text.startswith("/copy"):
@@ -368,7 +373,8 @@ def get_input_text_area(application_ref, console_ref, output_buffer, on_accept=N
 
         # Clear the buffer for the next command
         buff.reset()
-
+        
+        return True
         # Invalidate the application to force a redraw
         application_ref.invalidate()
 

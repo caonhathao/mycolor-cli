@@ -1,10 +1,14 @@
 from rich.table import Table
-from .theme_logic import set_theme, get_app_style, THEMES
+
 from template.result_response import BaseResponseTemplate
+
+from .theme_logic import THEMES, get_app_style, set_theme
+
 
 def handle_theme_command(command_text, log_to_buffer, app_ref):
     parts = command_text.split()
-    if len(parts) == 1:
+
+    if len(parts) == 1 or (len(parts) == 2 and (parts[1] in ["--help", "-h"])):
         log_to_buffer(BaseResponseTemplate(
             "Theme Manager",
             "/theme [flags]",
@@ -14,9 +18,6 @@ def handle_theme_command(command_text, log_to_buffer, app_ref):
                 "-h, --help": "Show this guide"
             }
         ))
-    elif len(parts) == 2 and (parts[1] == "--help" or parts[1] == "-h"):
-        # Reuse the base template for help as well for consistency
-        handle_theme_command("/theme", log_to_buffer, app_ref)
     elif len(parts) == 2 and parts[1] == "--list":
         table = Table(title="Available Themes", show_header=False, box=None)
         table.add_column("Name", style="cyan")
@@ -28,6 +29,7 @@ def handle_theme_command(command_text, log_to_buffer, app_ref):
         if set_theme(style_name):
             app_ref.style = get_app_style()
             log_to_buffer(f"[bold green]Theme set to {style_name}[/bold green]")
+            app_ref.invalidate() # Force redraw
         else:
             log_to_buffer(f"[bold red]Error: Theme '{style_name}' not found. Use /theme --list to see options.[/bold red]")
     else:

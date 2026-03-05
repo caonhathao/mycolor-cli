@@ -1,31 +1,40 @@
-import psutil
+import datetime
+import json
+import locale
 import platform
 import socket
-import datetime
-import locale
 import subprocess
+
+import psutil
+
+
+def sizeof_fmt(num, suffix="B"):
+    for unit in ["", "Ki", "Mi", "Gi", "Ti"]:
+        if abs(num) < 1024.0:
+            return f"{num:3.1f}{unit}{suffix}"
+        num /= 1024.0
+    return f"{num:.1f}Pi{suffix}"
 
 def run_powershell(command):
     """Executes a PowerShell command and returns a list of values."""
     try:
-        # Run powershell command, suppress window creation on Windows
         startupinfo = None
         if platform.system() == "Windows":
             startupinfo = subprocess.STARTUPINFO()
             startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 
-        # Use -NoProfile to avoid loading profile scripts which might output text
-        result = subprocess.run(["powershell", "-NoProfile", "-Command", command], capture_output=True, text=True, startupinfo=startupinfo)
+        result = subprocess.run(["powershell", "-NoProfile", "-Command", command], capture_output=True, text=True, startupinfo=startupinfo, check=True)
         lines = [line.strip() for line in result.stdout.split('\n') if line.strip()]
         return lines
-    except Exception:
+    except (subprocess.SubprocessError, FileNotFoundError):
         return []
 
 def get_general_info():
     bios = "Unknown"
     if platform.system() == "Windows":
         res = run_powershell("Get-CimInstance Win32_BIOS | Select-Object -ExpandProperty Version")
-        if res: bios = res[0]
+        if res:
+            bios = res[0]
     
     lang = locale.getdefaultlocale()
     lang_str = f"{lang[0]} ({lang[1]})" if lang[0] else "Unknown"
@@ -46,7 +55,8 @@ def get_cpu_info():
     cpu_name = platform.processor()
     if platform.system() == "Windows":
         res = run_powershell("Get-CimInstance Win32_Processor | Select-Object -ExpandProperty Name")
-        if res: cpu_name = res[0]
+        if res:
+            cpu_name = res[0]
 
     return {
         "Processor": cpu_name,
@@ -59,13 +69,6 @@ def get_ram_info():
     vm = psutil.virtual_memory()
     swap = psutil.swap_memory()
     
-    def sizeof_fmt(num, suffix="B"):
-        for unit in ["", "Ki", "Mi", "Gi", "Ti"]:
-            if abs(num) < 1024.0:
-                return f"{num:3.1f}{unit}{suffix}"
-            num /= 1024.0
-        return f"{num:.1f}Pi{suffix}"
-
     return {
         "Total Memory": sizeof_fmt(vm.total),
         "Available": sizeof_fmt(vm.available),
@@ -92,16 +95,23 @@ def get_disk_info():
 def get_display_info():
     displays = []
     if platform.system() == "Windows":
-        # Use powershell to get GPU info
-        names = run_powershell("Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name")
-        drivers = run_powershell("Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty DriverVersion")
-        
-        for i, name in enumerate(names):
-            driver = drivers[i] if i < len(drivers) else "Unknown"
-            displays.append({
-                "Card Name": name,
-                "Driver": driver
-            })
+        command = "Get-CimInstance Win32_VideoController | Select-Object Name, DriverVersion | ConvertTo-Json"
+        try:
+            result = subprocess.run(["powershell", "-NoProfile", "-Command", command], capture_output=True, text=True, check=True)
+            data = json.loads(result.stdout)
+            if isinstance(data, list):
+                for item in data:
+                    displays.append({
+                        "Card Name": item.get("Name"),
+                        "Driver": item.get("DriverVersion")
+                    })
+            else: # single object
+                displays.append({
+                    "Card Name": data.get("Name"),
+                    "Driver": data.get("DriverVersion")
+                })
+        except (subprocess.SubprocessError, json.JSONDecodeError, FileNotFoundError):
+            pass # Fallback to empty list
     return displays
 
 def get_input_info():

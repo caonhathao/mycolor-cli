@@ -1,17 +1,22 @@
 import os
 import socket
+
 from prompt_toolkit.layout.containers import VSplit, Window, WindowAlign
 from prompt_toolkit.layout.controls import FormattedTextControl
-import functions.theme.theme_logic
+
+from functions.theme.theme_logic import get_current_theme_colors
+
 
 def get_footer_container():
     """Returns the footer layout container."""
     def get_left_text():
-        primary_hex = functions.theme.theme_logic.get_pt_color_hex(functions.theme.theme_logic.current_theme["primary"])
+        colors = get_current_theme_colors()
+        primary_hex = colors["primary"]
         return [(f"fg:{primary_hex} bold", os.getcwd())]
 
     def get_right_text():
-        primary_hex = functions.theme.theme_logic.get_pt_color_hex(functions.theme.theme_logic.current_theme["primary"])
+        colors = get_current_theme_colors()
+        primary_hex = colors["primary"]
         return [(f"fg:{primary_hex}", f"{socket.gethostname()} | v0.0.1")]
 
     return VSplit([

@@ -24,7 +24,10 @@ import io
 
 from components.footer import get_footer_container
 from components.input_area import RoundedFrame
-import functions.theme.theme_logic
+
+# Thêm vào sau các dòng import
+_notification_trigger = None
+_notification_clear = None
 
 
 def get_cmd_screen_container(input_area, output_buffer):
@@ -32,7 +35,7 @@ def get_cmd_screen_container(input_area, output_buffer):
     Returns the layout container for the Command Screen (OpenCode View).
     Sticky Bottom layout.
     """
-
+    global _notification_trigger, _notification_clear
     # Ensure history is read-only
     output_buffer.read_only = True
 
@@ -58,56 +61,53 @@ def get_cmd_screen_container(input_area, output_buffer):
     class NotificationState:
         def __init__(self):
             self.show_notification = False
-            self.notification_task = None
+            self.notification_task: asyncio.Task | None = None
             self.notification_message = ""
             self.cached_text = ""
             self.cached_lines = []
-        
+
         def get_sorted_coords(self):
             return None, None
 
     state = NotificationState()
-    terminal_window = None  # Reference to the window for render info
 
     def trigger_notification(message, is_success=True):
         """Trigger a notification to display."""
-        
+
         # Color selection based on status (Theme Integration)
-        try:
-            # Use standard rich colors that align with project classes
-            # Success -> Green, Error -> Red
-            color = "class:success" if is_success else "class:error"
-        except:
-            color = "class:success" if is_success else "class:error"
-        
+        # Use standard rich colors that align with project classes
+        # Success -> Green, Error -> Red
+        color = "class:success" if is_success else "class:error"
+
         # Box Construction
         border = "┃"
-        h_padding = "    " # Exactly 4 spaces horizontal padding
-        
+        h_padding = "    "  # Exactly 4 spaces horizontal padding
+
         # Calculate dimensions
         content_len = len(message)
-        inner_width = content_len + 8 # 4 spaces left + 4 spaces right
-        
+        inner_width = content_len + 8  # 4 spaces left + 4 spaces right
+
         empty_line = f"{border}{' ' * inner_width}{border}"
         content_line = f"{border}{h_padding}{message}{h_padding}{border}"
-        
+
         # Construct ANSI string using Rich
         # Exactly 3 lines: Top Padding, Content, Bottom Padding
         box_markup = f"[{color}]{empty_line}\n{content_line}\n{empty_line}[/{color}]"
-        
-        console = Console(file=io.StringIO(), force_terminal=True, width=200)
+
+        buffer = io.StringIO()
+        console = Console(file=buffer, force_terminal=True, width=200)
         console.print(box_markup, end="")
-        
-        state.notification_message = console.file.getvalue()
+        plain_text = buffer.getvalue()
+        state.notification_message = plain_text
         state.show_notification = True
-        
+
         # Persistence with 5s timeout
         async def hide_notification():
             await asyncio.sleep(5)
             state.show_notification = False
             state.notification_message = ""
             get_app().invalidate()
-            
+
         app = get_app()
         if state.notification_task:
             state.notification_task.cancel()
@@ -118,10 +118,13 @@ def get_cmd_screen_container(input_area, output_buffer):
         state.show_notification = False
         state.notification_message = ""
 
+    _notification_trigger = trigger_notification
+    _notification_clear = clear_notification
     # Store trigger function globally for access from input_area
     import sys
-    sys.modules[__name__]._notification_trigger = trigger_notification
-    sys.modules[__name__]._notification_clear = clear_notification
+
+    _notification_trigger = trigger_notification
+    _notification_clear = clear_notification
 
     # Helper to sync cursor with output_buffer's cursor (allows manual scrolling)
     def get_buffer_cursor_position():
@@ -136,7 +139,7 @@ def get_cmd_screen_container(input_area, output_buffer):
         elif mouse_event.event_type == MouseEventType.SCROLL_DOWN:
             output_buffer.buffer.cursor_down(count=20)
             return None
-        
+
         # Disable all other mouse interactions (selection, right-click)
         return NotImplemented
 
@@ -243,9 +246,6 @@ def get_cmd_screen_container(input_area, output_buffer):
         always_hide_cursor=False,  # Cursor needed for scrolling sync sometimes, but usually hidden by control
     )
 
-    # Assign for mouse handler access
-    terminal_window = terminal_history
-
     # Key bindings for scrolling the history
     kb = KeyBindings()
 
@@ -315,21 +315,14 @@ def get_cmd_screen_container(input_area, output_buffer):
                     ),
                     filter=Condition(lambda: state.show_notification),
                 ),
-            )
-        ]
+            ),
+        ],
     )
 
 
 def get_notification_trigger():
-    """Returns the notification trigger function from cmd_screen module."""
-    import screens.cmd_screen as cmd_module
-    if hasattr(cmd_module, '_notification_trigger'):
-        return cmd_module._notification_trigger
-    return None
+    return _notification_trigger
+
 
 def get_notification_clearer():
-    """Returns the notification clear function from cmd_screen module."""
-    import screens.cmd_screen as cmd_module
-    if hasattr(cmd_module, '_notification_clear'):
-        return cmd_module._notification_clear
-    return None
+    return _notification_clear

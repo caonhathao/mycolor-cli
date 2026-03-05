@@ -1,48 +1,54 @@
-import os
-import sys
+import asyncio
 import json
-import time
+import os
 import platform
+import shutil
+import subprocess
+import sys
+import time
+from datetime import datetime
+
+from prompt_toolkit.application import Application
+from prompt_toolkit.layout.containers import DynamicContainer
+from prompt_toolkit.layout.layout import Layout
+from prompt_toolkit.output import ColorDepth
+from prompt_toolkit.patch_stdout import patch_stdout
+from prompt_toolkit.widgets import TextArea
+from rich.console import Console
+
+from components.input_area import get_input_key_bindings, get_input_text_area
+from functions.theme.theme_logic import get_app_style, load_config
+from layout.taskmgr_layout import get_taskmgr_layout
+from screens.cmd_screen import get_cmd_screen_container
+from screens.intro_screen import get_intro_screen_container
+
+
+def early_window_resize():
+    """
+    On Windows, attempts to resize the console window based on config.json
+    settings before the TUI is drawn.
+    """
+    if platform.system() == "Windows":
+        try:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            config_path = os.path.join(base_dir, "config.json")
+            with open(config_path, "r") as f:
+                config = json.load(f)
+                ws = config.get("window_settings", {})
+                cols = ws.get("cols", 120)
+                lines = ws.get("lines", 30)
+                os.system(f"mode con: cols={cols} lines={lines}")
+                time.sleep(0.3)  # Allow buffer to settle
+        except Exception:
+            pass
+
 
 # --- Argument Filter (Prevent Leakage) ---
 # Filter out common terminal flags that might leak during relaunch
 sys.argv = [arg for arg in sys.argv]
 
 # --- Ultra-Early Window Resize ---
-if platform.system() == "Windows":
-    try:
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        config_path = os.path.join(base_dir, "config.json")
-        with open(config_path, "r") as f:
-            config = json.load(f)
-            ws = config.get("window_settings", {})
-            cols = ws.get("cols", 120)
-            lines = ws.get("lines", 30)
-            os.system(f"mode con: cols={cols} lines={lines}")
-            time.sleep(0.3) # Allow buffer to settle
-    except Exception:
-        pass
-
-import io
-import shutil
-import subprocess
-from datetime import datetime
-import asyncio
-
-from rich.console import Console
-from rich.align import Align
-from prompt_toolkit.application import Application
-from prompt_toolkit.styles import Style as PTStyle
-from prompt_toolkit.output import ColorDepth
-from prompt_toolkit.patch_stdout import patch_stdout
-from prompt_toolkit.formatted_text import ANSI
-from prompt_toolkit.layout.layout import Layout
-from prompt_toolkit.layout.containers import DynamicContainer
-
-# Custom Modules
-from prompt_toolkit.widgets import TextArea
-from components.input_area import get_input_text_area, get_input_key_bindings
-from functions.theme.theme_logic import load_config, current_window_settings, get_app_style
+early_window_resize()
 
 # --- Early Startup Logic ---
 # 1. Parse Mode
@@ -59,25 +65,13 @@ if len(sys.argv) > 1 and "--mode" in sys.argv:
 load_config()
 
 
-from screens.intro_screen import get_intro_screen_container
-from screens.cmd_screen import get_cmd_screen_container
-from layout.taskmgr_layout import get_taskmgr_layout
-
-# --- Configuration ---
-APP_LOG = "app_session.log"
-
-def rich_to_ansi(renderable, width):
-    """Renders a Rich object to an ANSI string."""
-    console = Console(file=io.StringIO(), force_terminal=True, width=width)
-    console.print(renderable)
-    return console.file.getvalue()
-
-
 # --- Main Application Logic (prompt_toolkit) ---
 async def main_app(mode="default"):
     # Ensure stdout uses UTF-8 so PowerShell hosts don't mangle Unicode output.
     try:
-        sys.stdout.reconfigure(encoding="utf-8")
+        reconfig = getattr(sys.stdout, "reconfigure", None)
+        if reconfig:
+            reconfig(encoding="utf-8")
     except (AttributeError, OSError, ValueError):
         # Older Python or redirected/stdout objects may not support reconfigure.
         pass
@@ -95,7 +89,7 @@ async def main_app(mode="default"):
             ]
             if mode != "default":
                 cmd_args.extend(["--mode", mode])
-            
+
             subprocess.Popen(cmd_args)
             sys.exit(0)
         except FileNotFoundError:
@@ -131,11 +125,13 @@ async def main_app(mode="default"):
 
     # --- Unified History Buffer Initialization ---
     # 1. Create the buffer
-    output_buffer = TextArea(style="class:output-field", read_only=True, scrollbar=True, focus_on_click=True)
+    output_buffer = TextArea(
+        style="class:output-field", read_only=True, scrollbar=True, focus_on_click=True
+    )
 
     # State Management
     app_state = {"current_screen": "intro" if mode == "default" else mode}
-    application.app_state = app_state # Attach to app for access in commands
+    setattr(application, "app_state", app_state)
 
     def on_input_accept(buff):
         """Callback when input is accepted."""
@@ -145,10 +141,12 @@ async def main_app(mode="default"):
             application.renderer.erase()
             application.invalidate()
 
-    text_area = get_input_text_area(application, console, output_buffer, on_accept=on_input_accept)
-    
+    text_area = get_input_text_area(
+        application, output_buffer, on_accept=on_input_accept
+    )
+
     # Initialize Screens
-    intro_container = get_intro_screen_container(text_area, console)
+    intro_container = get_intro_screen_container(text_area)
     cmd_container = get_cmd_screen_container(text_area, output_buffer)
     taskmgr_container, taskmgr_focus = get_taskmgr_layout(application)
 
@@ -164,11 +162,11 @@ async def main_app(mode="default"):
 
     # Use DynamicContainer to switch between screens
     root_container = DynamicContainer(get_root_container)
-    
+
     initial_focus = text_area
     if mode == "taskmgr":
         initial_focus = taskmgr_focus
-    
+
     # Force verify initial_focus is a Window
     application.layout = Layout(root_container, focused_element=initial_focus)
 
@@ -180,9 +178,9 @@ if __name__ == "__main__":
     try:
         # --- Ultimate Terminal Reset ---
         if platform.system() == "Windows":
-            os.system('mode con: cols=120 lines=30')
+            os.system("mode con: cols=120 lines=30")
             time.sleep(0.3)
-            os.system('cls')
+            os.system("cls")
             sys.stdout.write("\033[H")
             sys.stdout.flush()
 
@@ -194,8 +192,8 @@ if __name__ == "__main__":
             f"Crash Report - {datetime.now()}\n"
             f"{'-' * 30}\n"
             f"{traceback.format_exc()}\n"
-            f"{ '=' * 30}\n\n"
+            f"{'=' * 30}\n\n"
         )
-        
+
         print(crash_report, file=sys.stderr)
         input("Press Enter to close...")

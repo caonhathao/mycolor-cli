@@ -1,30 +1,22 @@
-from .system_logic import terminate_process, run_new_task, set_startup_state, launch_taskmgr_window
-import functions.theme.theme_logic
+from functions.theme.theme_logic import get_current_theme_colors
 from template.result_response import BaseResponseTemplate
 
-def handle_system_command(log_to_buffer, command_text, app_ref):
+from .system_logic import (
+    launch_taskmgr_window,
+    run_new_task,
+    set_startup_state,
+    terminate_process,
+)
+
+
+def handle_system_command(log_to_buffer, command_text):
     parts = command_text.split()
     flags = parts[1:] if len(parts) > 1 else []
     
-    primary_hex = functions.theme.theme_logic.get_pt_color_hex(functions.theme.theme_logic.current_theme["primary"])
-    secondary_hex = functions.theme.theme_logic.get_pt_color_hex(functions.theme.theme_logic.current_theme["secondary"])
+    colors = get_current_theme_colors()
+    secondary_hex = colors["secondary"]
 
-    if not flags:
-        log_to_buffer(BaseResponseTemplate(
-            "System Task Manager & Control",
-            "/system [flags]",
-            {
-                "--taskmgr": "Open Interactive Task Manager UI",
-                "--end-task <pid>": "Terminate a process by PID",
-                "--run-new <cmd>": "Start a new process",
-                "--d <name>": "Disable a startup app",
-                "--e <name>": "Enable a startup app",
-                "-h, --help": "Show this guide"
-            }
-        ))
-        return
-
-    if "-h" in flags or "--help" in flags:
+    if not flags or "-h" in flags or "--help" in flags:
         log_to_buffer(BaseResponseTemplate(
             "System Task Manager & Control",
             "/system [flags]",
@@ -55,7 +47,7 @@ def handle_system_command(log_to_buffer, command_text, app_ref):
             color = "green" if success else "red"
             log_to_buffer(f"[bold {color}]{msg}[/bold {color}]")
         except (IndexError, ValueError):
-            log_to_buffer(f"[bold red]Error: Missing or invalid PID.[/bold red]")
+            log_to_buffer("[bold red]Error: Missing or invalid PID.[/bold red]")
 
     if "--run-new" in flags:
         try:
@@ -65,7 +57,7 @@ def handle_system_command(log_to_buffer, command_text, app_ref):
             color = "green" if success else "red"
             log_to_buffer(f"[bold {color}]{msg}[/bold {color}]")
         except IndexError:
-            log_to_buffer(f"[bold red]Error: Missing command.[/bold red]")
+            log_to_buffer("[bold red]Error: Missing command.[/bold red]")
             
     # Startup management
     for flag, enable in [("--d", False), ("--e", True)]:
@@ -78,4 +70,4 @@ def handle_system_command(log_to_buffer, command_text, app_ref):
                 log_to_buffer(f"[bold {color}]{msg}[/bold {color}]")
                 return # Exit after processing one startup command to avoid confusion
             except IndexError:
-                log_to_buffer(f"[bold red]Error: Missing app name.[/bold red]")
+                log_to_buffer("[bold red]Error: Missing app name.[/bold red]")

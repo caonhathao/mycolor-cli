@@ -1,16 +1,16 @@
-from rich.text import Text
-from rich.style import Style
-from rich.color import Color
+from typing import Optional
+
 from rich.align import Align
+from rich.color import Color
+from rich.style import Style
+from rich.text import Text
 
 # Font-safe Unicode: U+2588 FULL BLOCK (█) for logo, U+2591 LIGHT SHADE (░) for shadow.
-LOGO_CHAR = "\u2588"   # █
+LOGO_CHAR = "\u2588"  # █
 SHADOW_CHAR = "\u2591"  # ░
 
-# --- Logo Generation (all use LOGO_CHAR = █ U+2588) ---
-def _blk(n: int) -> str:
-    return LOGO_CHAR * n
 
+# --- Logo Generation (all use LOGO_CHAR = █ U+2588) ---
 M_PIXELS = [
     "███       ███",
     "████     ████",
@@ -29,16 +29,6 @@ Y_PIXELS = [
     "    ███    ",
     "    ███    ",
     "    ███    ",
-]
-
-W_PIXELS = [
-    "███       ███",
-    "███       ███",
-    "███   █   ███",
-    "███  ███  ███",
-    "███ ██ ██ ███",
-    "█████   █████",
-    "███       ███",
 ]
 
 C_PIXELS = [
@@ -81,26 +71,15 @@ L_PIXELS = [
     "████████ ",
 ]
 
-D_PIXELS = [
-    "████████   ",
-    "███    ███ ",
-    "███     ███",
-    "███     ███",
-    "███     ███",
-    "███    ███ ",
-    "████████   ",
-]
-
 LOGO_MAP = {
     "M": M_PIXELS,
     "Y": Y_PIXELS,
-    "W": W_PIXELS,
     "C": C_PIXELS,
     "O": O_PIXELS,
     "R": R_PIXELS,
     "L": L_PIXELS,
-    "D": D_PIXELS,
 }
+
 
 def _parse_hex6(hex_str: str) -> tuple[int, int, int]:
     """Parse hex string to RGB. Always returns exactly 6-digit hex portion. No alpha."""
@@ -123,10 +102,16 @@ def interpolate_hex(hex1: str, hex2: str, ratio: float) -> str:
     return f"#{r:02x}{g:02x}{b:02x}"
 
 
-def _generate_logo_grid(logo_word: str, gradient_colors_str: list[str], bg_hex: str, container_width: int = 100) -> tuple[list[list[tuple[str, Style]]], int, int]:
+def _generate_logo_grid(
+    logo_word: str,
+    gradient_colors_str: list[str],
+    bg_hex: str,
+    container_width: int = 100,
+) -> tuple[list[list[tuple[str, Style]]], int, int]:
     """
     Generates a 2D grid of (char, Style) tuples for the logo.
     """
+
     def _ensure_hex6(s: str) -> str:
         h = s.lstrip("#")
         if len(h) >= 6:
@@ -140,7 +125,7 @@ def _generate_logo_grid(logo_word: str, gradient_colors_str: list[str], bg_hex: 
     chars_pixels = []
     total_width = 0
     height = 7
-    
+
     for char in logo_word:
         pixels = LOGO_MAP.get(char.upper(), [])
         if pixels:
@@ -150,7 +135,7 @@ def _generate_logo_grid(logo_word: str, gradient_colors_str: list[str], bg_hex: 
             # Fallback for unknown chars
             chars_pixels.append([" " * 5] * 7)
             total_width += 5 + char_spacing
-            
+
     # Calculate start_x to center the logo in the container
     start_x = max(0, (container_width - total_width) // 2)
     final_width = container_width
@@ -162,15 +147,18 @@ def _generate_logo_grid(logo_word: str, gradient_colors_str: list[str], bg_hex: 
 
     # 3. Fill Grid with Gradient
     current_x = 0
-    
+
     def get_color(x_ratio):
         n = len(gradient_hex)
-        if n < 2: return gradient_hex[0] if n else "#ffffff"
+        if n < 2:
+            return gradient_hex[0] if n else "#ffffff"
         segment_len = 1.0 / (n - 1)
         idx = min(int(x_ratio / segment_len), n - 2)
         idx = max(0, idx)
-        sub_ratio = (x_ratio - idx * segment_len) / segment_len if segment_len > 0 else 0
-        return interpolate_hex(gradient_hex[idx], gradient_hex[idx+1], sub_ratio)
+        sub_ratio = (
+            (x_ratio - idx * segment_len) / segment_len if segment_len > 0 else 0
+        )
+        return interpolate_hex(gradient_hex[idx], gradient_hex[idx + 1], sub_ratio)
 
     for pixels in chars_pixels:
         char_w = len(pixels[0])
@@ -182,7 +170,7 @@ def _generate_logo_grid(logo_word: str, gradient_colors_str: list[str], bg_hex: 
                     ratio = global_x / (total_width - 1) if total_width > 1 else 0.5
                     color = get_color(ratio)
                     style = Style(color=Color.parse(color), bgcolor=Color.parse(bg_hex))
-                    
+
                     grid_x = start_x + current_x + x
                     if 0 <= grid_x < final_width:
                         grid[y][grid_x] = (LOGO_CHAR, style)
@@ -190,16 +178,19 @@ def _generate_logo_grid(logo_word: str, gradient_colors_str: list[str], bg_hex: 
 
     return grid, final_width, height
 
-def generate_logo_rich_text(width: int, theme: dict, background_color_hex: str) -> tuple[Text, int]:
+
+def generate_logo_rich_text(
+    width: int, theme: dict, background_color_hex: str
+) -> tuple[Text, int]:
     """
     Generates the 'MYCOLOR' pixel art logo with gradient and shadow.
     Uses █ (U+2588) for logo, ░ (U+2591) for shadow. Every character has bg #0d1117 for seamless display.
     """
     word = "MYCOLOR"
-    
+
     # Dynamic Logo Colors: Use Primary and Secondary from theme
-    def _get_hex(s: Style) -> str:
-        if s and s.color:
+    def _get_hex(s: Optional[Style]) -> str:
+        if s and isinstance(s, Style) and s.color:
             try:
                 t = s.color.get_truecolor()
                 return f"#{t.red:02x}{t.green:02x}{t.blue:02x}"
@@ -220,15 +211,19 @@ def generate_logo_rich_text(width: int, theme: dict, background_color_hex: str) 
         bg_hex = "#" + background_color_hex.lstrip("#")[:6].lower()
 
     # Force 80 char width for the grid generation to ensure centering
-    logo_grid, logo_w, logo_h = _generate_logo_grid(word, gradient_colors, bg_hex, container_width=100)
+    logo_grid, logo_w, logo_h = _generate_logo_grid(
+        word, gradient_colors, bg_hex, container_width=width
+    )
 
     shadow_offset_x, shadow_offset_y = 1, 1
     buffer_height = logo_h + shadow_offset_y
-    buffer_width = logo_w # The grid is already padded to 80, shadow might clip if we aren't careful, but 80 is wide enough.
+    buffer_width = logo_w  # The grid is already padded to 80, shadow might clip if we aren't careful, but 80 is wide enough.
 
     # Final buffer with background
     bg_style = Style(bgcolor=Color.parse(bg_hex))
-    final_grid = [[(" ", bg_style) for _ in range(buffer_width)] for _ in range(buffer_height)]
+    final_grid = [
+        [(" ", bg_style) for _ in range(buffer_width)] for _ in range(buffer_height)
+    ]
 
     # 1. Draw Shadow
     try:
@@ -263,14 +258,14 @@ def generate_logo_rich_text(width: int, theme: dict, background_color_hex: str) 
 
     return final_logo_text, buffer_height
 
-def get_logo_renderable(console_width: int, theme: dict):
+
+def get_logo_renderable(width: int, theme: dict):
     """Generates the Logo renderable (centered)."""
-    background_style = Style(bgcolor=theme["background"])
     try:
         # We force 80 width in generation, so we can just return it.
-        # The Align.center in myworld.py is redundant if we generate 80 chars, 
+        # The Align.center in myworld.py is redundant if we generate 80 chars,
         # but good for safety if console > 80.
-        raw_logo_text, _ = generate_logo_rich_text(100, theme, theme["background"])
+        raw_logo_text, _ = generate_logo_rich_text(width, theme, theme["background"])
         return Align.center(raw_logo_text)
     except Exception:
         raw_logo_text = Text(

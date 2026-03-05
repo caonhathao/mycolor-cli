@@ -1,8 +1,11 @@
+import io
+from time import monotonic
+
+from rich.align import Align
 from rich.console import Console
 from rich.panel import Panel
-from rich.align import Align
 from rich.text import Text
-import io
+
 
 class BaseMonitor:
     def __init__(self, title="Monitor", color="green"):
@@ -12,7 +15,19 @@ class BaseMonitor:
         self.last_value = 0.0
         self.cached_frame = ""
         # Vertical Column block system as requested
-        self.blocks = [' ', '▂', '▃', '▄', '▅', '▆', '▇', '█']
+        self.blocks = [" ", "▂", "▃", "▄", "▅", "▆", "▇", "█"]
+
+        # Optimization: 5-second refresh rate
+        self.update_interval = 5.0
+        self.last_update_time = 0.0
+
+    def should_update(self):
+        """Check if enough time has passed to perform an update."""
+        current_time = monotonic()
+        if current_time - self.last_update_time >= self.update_interval:
+            self.last_update_time = current_time
+            return True
+        return False
 
     def update(self):
         pass
@@ -21,33 +36,31 @@ class BaseMonitor:
         return self.cached_frame
 
     def _get_graph_text(self, data, width, height, color):
-        inner_width = max(1, width)
-        inner_height = max(1, height)
-        
-        data_slice = data[-inner_width:]
-        if len(data_slice) < inner_width:
-            data_slice = [0.0] * (inner_width - len(data_slice)) + data_slice
+        data_slice = data[-width:]
+        if len(data_slice) < width:
+            data_slice = [0.0] * (width - len(data_slice)) + data_slice
 
-        graph_rows = [[' ' for _ in range(inner_width)] for _ in range(inner_height)]
+        graph_rows = [[" " for _ in range(width)] for _ in range(height)]
 
         for x, val in enumerate(data_slice):
             # Normalize value (0-100) to height
-            h = (val / 100.0) * inner_height
+            h = (val / 100.0) * height
             full_blocks = int(h)
             remainder = h - full_blocks
 
             # Fill full blocks from bottom
             for y in range(full_blocks):
-                row_idx = inner_height - 1 - y
-                if 0 <= row_idx < inner_height:
-                    graph_rows[row_idx][x] = '█'
-            
+                row_idx = height - 1 - y
+                if 0 <= row_idx < height:
+                    graph_rows[row_idx][x] = "█"
+
             # Add partial block
-            if remainder > 0 and full_blocks < inner_height:
+            if remainder > 0 and full_blocks < height:
                 idx = int(remainder * 8)
-                if idx > 7: idx = 7
-                row_idx = inner_height - 1 - full_blocks
-                if 0 <= row_idx < inner_height:
+                if idx > 7:
+                    idx = 7
+                row_idx = height - 1 - full_blocks
+                if 0 <= row_idx < height:
                     graph_rows[row_idx][x] = self.blocks[idx]
 
         graph_text = Text()
@@ -65,7 +78,9 @@ class BaseMonitor:
         inner_width = max(1, width - 4)
         inner_height = max(1, height - 2)
 
-        graph_text = self._get_graph_text(self.history, inner_width, inner_height, color)
+        graph_text = self._get_graph_text(
+            self.history, inner_width, inner_height, color
+        )
 
         panel = Panel(
             Align.center(graph_text),
@@ -73,9 +88,10 @@ class BaseMonitor:
             border_style=border_color,
             width=width,
             height=height,
-            padding=(0, 1)
+            padding=(0, 1),
         )
 
-        console = Console(file=io.StringIO(), force_terminal=True, width=width)
+        buffer = io.StringIO()
+        console = Console(file=buffer, force_terminal=True, width=width)
         console.print(panel)
-        self.cached_frame = console.file.getvalue()
+        self.cached_frame = buffer.getvalue()

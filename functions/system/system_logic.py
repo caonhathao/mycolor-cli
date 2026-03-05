@@ -1,7 +1,8 @@
-import psutil
-import subprocess
 import os
+import subprocess
 import sys
+
+import psutil
 
 try:
     import winreg
@@ -15,8 +16,10 @@ def get_processes():
         try:
             p_info = p.info
             # Ensure values are not None
-            if p_info['cpu_percent'] is None: p_info['cpu_percent'] = 0.0
-            if p_info['memory_percent'] is None: p_info['memory_percent'] = 0.0
+            if p_info['cpu_percent'] is None:
+                p_info['cpu_percent'] = 0.0
+            if p_info['memory_percent'] is None:
+                p_info['memory_percent'] = 0.0
             procs.append(p_info)
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
             pass
@@ -28,7 +31,7 @@ def terminate_process(pid):
         p = psutil.Process(pid)
         p.terminate()
         return True, f"Process {pid} terminated."
-    except Exception as e:
+    except psutil.Error as e:
         return False, str(e)
 
 def run_new_task(cmd):
@@ -36,7 +39,7 @@ def run_new_task(cmd):
     try:
         subprocess.Popen(cmd, shell=True)
         return True, f"Started: {cmd}"
-    except Exception as e:
+    except (subprocess.SubprocessError, OSError) as e:
         return False, str(e)
 
 # Registry paths
@@ -75,41 +78,38 @@ def get_startup_apps():
                     except OSError:
                         break
         except OSError:
-            pass
+            pass # StartupApproved key might not exist
             
-    except Exception:
-        pass
+    except OSError:
+        pass # Run key might not exist
     return apps
 
 def set_startup_state(name, enable):
     """Enables or disables a startup app using StartupApproved key."""
-    if not winreg: return False, "Registry access not available."
+    if not winreg:
+        return False, "Registry access not available."
     
     try:
         with winreg.CreateKey(winreg.HKEY_CURRENT_USER, APPROVED_KEY) as key:
-            # Default enabled value if not present
-            val = b'\x02' + b'\x00' * 11
-            
+            # The value is a 12-byte array. The first byte determines the state.
+            # 0x02 = enabled, 0x03 = disabled. The other bytes are typically zero.
             new_byte = 0x02 if enable else 0x03
-            new_val = bytes([new_byte]) + val[1:]
+            new_val = bytes([new_byte]) + b'\x00' * 11
             winreg.SetValueEx(key, name, 0, winreg.REG_BINARY, new_val)
             return True, f"Startup app '{name}' {'enabled' if enable else 'disabled'}."
-    except Exception as e:
+    except OSError as e:
         return False, str(e)
 
 def launch_taskmgr_window():
     """Launches the Task Manager in a new terminal window."""
     try:
-        # Use sys.executable to get the current python interpreter
         python_exe = sys.executable
         script_path = os.path.abspath("myworld.py")
         work_dir = os.getcwd()
         
-        # Build the command string carefully
-        # Note: The first set of quotes is the Window Title
         command = f'start "MYCOLOR - Task Manager" "{python_exe}" "{script_path}" --mode taskmgr'
         
         subprocess.Popen(command, shell=True, cwd=work_dir)
         return True, "Task Manager launched in a new window."
-    except Exception as e:
+    except (subprocess.SubprocessError, FileNotFoundError, OSError) as e:
         return False, str(e)

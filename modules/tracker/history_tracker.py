@@ -6,8 +6,10 @@ class HistoryTracker:
         self.is_capturing = False
     
     def start_new_entry(self, command_text):
-        """Called when a user presses Enter in the input area."""
-        """Pre-filter /copy commands and prepare for result stream."""
+        """
+        Called when a user presses Enter in the input area.
+        Pre-filters /copy commands and prepares for result stream.
+        """
         clean_cmd = command_text.strip()
         if clean_cmd.startswith('/copy'):
             self.is_capturing = False
