@@ -100,10 +100,7 @@ class GPUMonitor(BaseMonitor):
                 self.loader = WindowsGPULoader()
                 self.loader.start()
 
-    def update(self):
-        if not self.should_update():
-            return
-
+    def _do_update(self):
         val = 0.0
 
         if self.use_wmi and self.loader:

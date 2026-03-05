@@ -40,6 +40,8 @@ def build_taskmgr_layout(interface):
     def _(event):
         if interface.selected_index > 0:
             interface.selected_index -= 1
+            interface._data_changed = True
+            event.app.invalidate()
 
     @kb.add("down", filter=Condition(lambda: interface.active_tab != 1))
     def _(event):
@@ -50,6 +52,8 @@ def build_taskmgr_layout(interface):
         )
         if interface.selected_index < limit - 1:
             interface.selected_index += 1
+            interface._data_changed = True
+            event.app.invalidate()
 
     @kb.add("q")
     def _(event):
@@ -87,6 +91,7 @@ def build_taskmgr_layout(interface):
         interface.active_tab = (interface.active_tab - 1) % 3
         interface.selected_index = 0
         interface.scroll_offset = 0
+        interface._data_changed = True
         event.app.renderer.clear()
         event.app.invalidate()
 
@@ -95,6 +100,7 @@ def build_taskmgr_layout(interface):
         interface.active_tab = (interface.active_tab + 1) % 3
         interface.selected_index = 0
         interface.scroll_offset = 0
+        interface._data_changed = True
         event.app.renderer.clear()
         event.app.invalidate()
 

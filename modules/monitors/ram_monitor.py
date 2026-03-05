@@ -7,9 +7,7 @@ class RAMMonitor(BaseMonitor):
     def __init__(self):
         super().__init__(title="RAM Usage", color="yellow")
 
-    def update(self):
-        if not self.should_update():
-            return
+    def _do_update(self):
         try:
             val = psutil.virtual_memory().percent
             self.last_value = val

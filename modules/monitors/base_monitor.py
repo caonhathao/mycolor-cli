@@ -21,6 +21,10 @@ class BaseMonitor:
         self.update_interval = 5.0
         self.last_update_time = 0.0
 
+        # Console reuse for performance
+        self._buffer = io.StringIO()
+        self._console = Console(file=self._buffer, force_terminal=True, width=80)
+
     def should_update(self):
         """Check if enough time has passed to perform an update."""
         current_time = monotonic()
@@ -30,6 +34,13 @@ class BaseMonitor:
         return False
 
     def update(self):
+        """Update monitor data. Returns True if data was refreshed, False otherwise."""
+        if self.should_update():
+            self._do_update()
+            return True
+        return False
+
+    def _do_update(self):
         pass
 
     def get_cached_frame(self):
@@ -91,7 +102,8 @@ class BaseMonitor:
             padding=(0, 1),
         )
 
-        buffer = io.StringIO()
-        console = Console(file=buffer, force_terminal=True, width=width)
-        console.print(panel)
-        self.cached_frame = buffer.getvalue()
+        self._buffer.seek(0)
+        self._buffer.truncate(0)
+        self._console.width = width
+        self._console.print(panel)
+        self.cached_frame = self._buffer.getvalue()

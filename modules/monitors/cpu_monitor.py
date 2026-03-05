@@ -9,9 +9,7 @@ class CPUMonitor(BaseMonitor):
         # Initialize cpu_percent to start measurement
         psutil.cpu_percent(interval=None)
 
-    def update(self):
-        if not self.should_update():
-            return
+    def _do_update(self):
         try:
             val = psutil.cpu_percent(interval=None)
             self.last_value = val
