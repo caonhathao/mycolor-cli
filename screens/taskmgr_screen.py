@@ -1,25 +1,22 @@
 import asyncio
-import psutil
-import socket
-import time
-import shutil
-import json
-from prompt_toolkit.formatted_text import ANSI
-from rich.table import Table
-import datetime
-from rich.console import Console
-from rich.panel import Panel
-from rich.align import Align
 import io
+import os
+import shutil
+import socket
+from time import time
 
-from functions.system.system_logic import get_processes, get_startup_apps
-import functions.theme.theme_logic
+import psutil
+from prompt_toolkit.formatted_text import ANSI
+from rich.console import Console
+from rich.table import Table
+
+from functions.system.system_logic import get_startup_apps
+from functions.theme.theme_logic import get_current_theme_colors
 from modules.monitors.cpu_monitor import CPUMonitor
-from modules.monitors.ram_monitor import RAMMonitor
 from modules.monitors.gpu_monitor import GPUMonitor
 from modules.monitors.net_monitor import NetMonitor
-
-from prompt_toolkit.layout.dimension import Dimension
+from modules.monitors.ram_monitor import RAMMonitor
+from modules.panel.detail_panel import DetailPanel
 
 
 class TaskManagerInterface:
@@ -31,52 +28,14 @@ class TaskManagerInterface:
         self.scroll_offset = 0
         self.processes = []
         self.startup_apps = []
-        self.sys_uptime = "0:00:00"
-        self.sys_procs = 0
-        self.sys_threads = 0
-        self.sys_handles = 0
         self.running = True
-        self.last_term_size = shutil.get_terminal_size()
+        self.last_term_size = (0, 0)
         self.first_render = True
         self.tabs_window = None  # Reference to the tabs window for focus checking
+        self.last_process_fetch_time = 0
+        self.procs = {}  # Cache for Process objects to maintain CPU state
 
-        # 1. Dimensional Constants & Math
-        self.blueprints = self._load_blueprints()
-        self.current_mode = "mini"  # Default to mini for 120 col launch
-        self._apply_blueprint(self.current_mode)
-
-        # 1. Mathematical Threshold Calculation
-        self.FULL_THRESHOLD = 124
-        self.rendered_components = []
-
-        # Adaptive Visibility State
-        self.show_sidebar = True
-        self._load_initial_visibility()
-
-        # Monitors
-        self.cpu_monitor = CPUMonitor()
-        self.ram_monitor = RAMMonitor()
-        self.gpu_monitor = GPUMonitor()
-        self.net_monitor = NetMonitor()
-
-        # Start background update task
-        self.app.create_background_task(self.update_loop())
-
-    def _load_initial_visibility(self):
-        try:
-            with open("config.json", "r") as f:
-                config = json.load(f)
-                self.show_sidebar = (
-                    config.get("layout_visibility", {})
-                    .get("performance", {})
-                    .get("show_sidebar", True)
-                )
-        except Exception:
-            self.show_sidebar = True
-
-    def _load_blueprints(self):
-        # Fallback defaults
-        default_blueprints = {
+        self.blueprints = {
             "mini": {
                 "blocks": {"cpu": {"w": 59, "h": 14}, "details": {"w": 0, "h": 0}},
                 "spacers": {"mid_gap": 1, "right_padding": 1},
@@ -86,12 +45,26 @@ class TaskManagerInterface:
                 "spacers": {"mid_gap": 1, "right_padding": 1},
             },
         }
-        try:
-            with open("config.json", "r") as f:
-                config = json.load(f)
-                return config.get("layout_blueprints", default_blueprints)
-        except Exception:
-            return default_blueprints
+        self.current_mode = "mini"
+        self._apply_blueprint(self.current_mode)
+
+        self.FULL_THRESHOLD = 124
+        self.show_sidebar = True
+        self._load_initial_visibility()
+
+        # Monitors
+        self.cpu_monitor = CPUMonitor()
+        self.ram_monitor = RAMMonitor()
+        self.gpu_monitor = GPUMonitor()
+        self.net_monitor = NetMonitor()
+        self.detail_panel = DetailPanel()
+
+        self.app.create_background_task(self.update_loop())
+
+    def _load_initial_visibility(self):
+        # This is now a dynamic property based on terminal width
+        current_width = shutil.get_terminal_size().columns
+        self.show_sidebar = current_width >= self.FULL_THRESHOLD
 
     def _apply_blueprint(self, mode):
         bp = self.blueprints.get(mode, self.blueprints["mini"])
@@ -102,174 +75,140 @@ class TaskManagerInterface:
         self.RIGHT_PADDING = bp["spacers"]["right_padding"]
         self.current_mode = mode
 
-    def _update_config_visibility(self, show_sidebar):
-        try:
-            with open("config.json", "r") as f:
-                config = json.load(f)
-
-            if "layout_visibility" not in config:
-                config["layout_visibility"] = {}
-            if "performance" not in config["layout_visibility"]:
-                config["layout_visibility"]["performance"] = {}
-
-            config["layout_visibility"]["performance"]["show_sidebar"] = show_sidebar
-            config["layout_visibility"]["performance"]["rendered_components"] = (
-                self.rendered_components
-            )
-
-            with open("config.json", "w") as f:
-                json.dump(config, f, indent=4)
-        except Exception:
-            pass
-
     async def update_loop(self):
-        loop = asyncio.get_running_loop()
-        last_fetch_time = 0
-        while self.running:
-            # Adaptive Visibility Check
-            current_width = shutil.get_terminal_size().columns
+        try:
+            while self.running:
+                current_width = shutil.get_terminal_size().columns
+                new_mode = "full" if current_width >= self.FULL_THRESHOLD else "mini"
 
-            # 2. Adaptive Visibility Guard
-            new_mode = self.current_mode
+                if new_mode != self.current_mode:
+                    self._apply_blueprint(new_mode)
+                    self.show_sidebar = new_mode == "full"
+                    self.app.renderer.erase()
 
-            if current_width >= self.FULL_THRESHOLD:
-                new_mode = "full"
-                self.rendered_components = ["graphs", "sidebar"]
-            else:
-                new_mode = "mini"
-                self.rendered_components = ["graphs"]
+                current_term_size = shutil.get_terminal_size()
+                if current_term_size != self.last_term_size or self.first_render:
+                    self.last_term_size = current_term_size
+                    self.first_render = False
+                    self.app.renderer.clear()
+                    self.app.invalidate()
 
-            if new_mode != self.current_mode:
-                self._apply_blueprint(new_mode)
-                self.app.renderer.erase()  # Ghosting fix
+                if self.app.app_state.get("current_screen") == "taskmgr":
+                    current_time = time()
 
-            should_show_sidebar = new_mode == "full"
-            if should_show_sidebar != self.show_sidebar:
-                self.show_sidebar = should_show_sidebar
-                self._update_config_visibility(should_show_sidebar)
-                self.app.invalidate()
+                    if self.active_tab == 1:  # Performance
+                        if hasattr(self.gpu_monitor, "resume"):
+                            self.gpu_monitor.resume()
 
-            # Cleanup Render Artifacts on Resize
-            current_term_size = shutil.get_terminal_size()
-            if current_term_size != self.last_term_size or self.first_render:
-                self.last_term_size = current_term_size
-                self.first_render = False
-                self.app.renderer.clear()
-                self.app.invalidate()
+                        colors = get_current_theme_colors()
+                        secondary_hex = colors["secondary"]
 
-            if self.app.app_state.get("current_screen") == "taskmgr":
-                self.processes = get_processes()
-                self.startup_apps = list(get_startup_apps().items())
-
-                current_time = time.time()
-                # Decouple Sampling: Fetch every 1.0s
-                if current_time - last_fetch_time >= 1.0:
-                    try:
-                        # Poll Monitors
                         self.cpu_monitor.update()
                         self.ram_monitor.update()
                         self.net_monitor.update()
                         self.gpu_monitor.update()
 
-                        # System Details
-                        boot_time = psutil.boot_time()
-                        uptime_seconds = time.time() - boot_time
-                        self.sys_uptime = str(
-                            datetime.timedelta(seconds=int(uptime_seconds))
-                        )
-                        self.sys_procs = len(psutil.pids())
-                        self.sys_threads = 0
-                        self.sys_handles = 0
-
-                        # 1. Move Rendering to Background (Pre-render Strategy)
-                        # Calculate dimensions once
                         width, height = self._calculate_graph_dimensions()
-                        secondary_hex = functions.theme.theme_logic.get_pt_color_hex(
-                            functions.theme.theme_logic.current_theme["secondary"]
-                        )
-
-                        # Render CPU
                         self.cpu_monitor.render(
-                            width, height, secondary_hex, secondary_hex, unit="%"
+                            width, height, secondary_hex, secondary_hex
                         )
-                        # Render RAM
                         self.ram_monitor.render(
-                            width, height, secondary_hex, secondary_hex, unit="%"
+                            width, height, secondary_hex, secondary_hex
                         )
-                        # Render GPU
                         self.gpu_monitor.render(
-                            width, height, secondary_hex, secondary_hex, unit="%"
+                            width, height, secondary_hex, secondary_hex
                         )
-                        # Render Network
                         self.net_monitor.render(
                             width, height, secondary_hex, secondary_hex
                         )
 
-                        last_fetch_time = current_time
-                        if self.app.app_state.get("current_screen") == "taskmgr":
-                            self.app.invalidate()
-                    except Exception:
+                    else:  # Processes or Startup
+                        if hasattr(self.gpu_monitor, "pause"):
+                            self.gpu_monitor.pause()
+
+                        if current_time - self.last_process_fetch_time >= 5.0:
+                            if self.active_tab == 0:
+                                self.fetch_processes()
+                            elif self.active_tab == 2:
+                                self.startup_apps = list(get_startup_apps().items())
+                            self.last_process_fetch_time = current_time
+
+                    if self.show_sidebar:
+                        self.detail_panel.update()
+
+                    self.app.invalidate()
+
+                await asyncio.sleep(0.1)
+        finally:
+            if hasattr(self, "gpu_monitor") and hasattr(self.gpu_monitor, "stop"):
+                self.gpu_monitor.stop()
+            if hasattr(self, "detail_panel") and hasattr(self.detail_panel, "stop"):
+                self.detail_panel.stop()
+
+    def fetch_processes(self):
+        cpu_count = psutil.cpu_count() or 1
+        new_procs = {}
+        process_list = []
+
+        for p in psutil.process_iter(
+            [
+                "pid",
+                "name",
+                "cpu_percent",
+                "memory_percent",
+                "num_threads",
+                "create_time",
+            ]
+        ):
+            try:
+                if p.pid in self.procs:
+                    cached_p = self.procs[p.pid]
+                    try:
+                        if cached_p.create_time() == p.info["create_time"]:
+                            p = cached_p
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
                         pass
-            await asyncio.sleep(0.1)  # Check more frequently for responsiveness
+
+                with p.oneshot():
+                    cpu = p.cpu_percent(interval=None)
+                    normalized_cpu = cpu / cpu_count
+                    info = p.info
+                    info["cpu_percent"] = normalized_cpu
+                    info["num_handles"] = 0
+                    try:
+                        info["num_handles"] = p.num_handles()
+                    except (AttributeError, psutil.AccessDenied):
+                        pass
+
+                    process_list.append(info)
+                    new_procs[p.pid] = p
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                pass
+
+        self.procs = new_procs
+        self.processes = sorted(
+            process_list, key=lambda x: x["cpu_percent"], reverse=True
+        )
 
     def get_header(self):
-        primary_hex = functions.theme.theme_logic.get_pt_color_hex(
-            functions.theme.theme_logic.current_theme["primary"]
-        )
+        colors = get_current_theme_colors()
+        primary_hex = colors["primary"]
         hostname = socket.gethostname()
         return [(f"bg:{primary_hex} fg:#000000 bold", f" SYSTEM MONITOR - {hostname} ")]
 
     def get_sidebar(self):
-        primary_hex = functions.theme.theme_logic.get_pt_color_hex(
-            functions.theme.theme_logic.current_theme["primary"]
-        )
-        secondary_hex = functions.theme.theme_logic.get_pt_color_hex(
-            functions.theme.theme_logic.current_theme["secondary"]
-        )
-
-        content = f"""
-[white]{"Up time":<15}[/]
-[bold red]{self.sys_uptime}[/]
-
-[white]{"Processes":<15}[/]
-[bold red]{self.sys_procs}[/]
-
-[white]{"Threads":<15}[/]
-[bold red]{self.sys_threads}[/]
-
-[white]{"Handles":<15}[/]
-[bold red]{self.sys_handles}[/]
-"""
-        panel = Panel(
-            Align.left(content.strip()),
-            title=f"[bold {primary_hex}]Details[/]",
-            border_style=primary_hex,
-            expand=True,
-        )
-
-        console = Console(
-            file=io.StringIO(), force_terminal=True, width=self.SIDEBAR_WIDTH
-        )
-        console.print(panel)
-        return ANSI(console.file.getvalue())
+        return self.detail_panel.render(self.SIDEBAR_WIDTH)
 
     def _calculate_graph_dimensions(self):
         term_size = shutil.get_terminal_size()
         term_width = term_size.columns
         term_height = term_size.lines
 
-        # Width Calculation
-        # Spacers: 1 (mid gap) + 1 (before sidebar/margin) + 1 (right margin) = 3
         spacers_w = 3
         sidebar_w = self.SIDEBAR_WIDTH if self.show_sidebar else 0
-
         available_width = term_width - sidebar_w - spacers_w
-        # Split into 2 columns
         quad_width = max(10, available_width // 2)
 
-        # Height Calculation
-        # Header(1) + Tabs(1) + Hints(1) + Status(1) = 4
-        # Plus 1 vertical spacer in HSplit = 5
         vertical_fixed = 5
         available_height = term_height - vertical_fixed
         quad_height = max(5, available_height // 2)
@@ -277,21 +216,16 @@ class TaskManagerInterface:
         return quad_width, quad_height
 
     def get_content(self):
-        primary_hex = functions.theme.theme_logic.get_pt_color_hex(
-            functions.theme.theme_logic.current_theme["primary"]
-        )
-        secondary_hex = functions.theme.theme_logic.get_pt_color_hex(
-            functions.theme.theme_logic.current_theme["secondary"]
-        )
-        suggestion_bg = functions.theme.theme_logic.current_theme.get(
-            "suggestion_bg", "#21262d"
-        )
+        colors = get_current_theme_colors()
+        primary_hex = colors["primary"]
+        secondary_hex = colors["secondary"]
+        suggestion_bg = colors.get("suggestion_bg", "#21262d")
 
-        # For tables (Processes/Startup), use full available width
         term_width = shutil.get_terminal_size().columns
-        console_width = max(10, term_width - 2)  # Simple margin
+        console_width = max(10, term_width - 2)
 
-        console = Console(file=io.StringIO(), force_terminal=True, width=console_width)
+        buffer = io.StringIO()
+        console = Console(file=buffer, force_terminal=True, width=console_width)
 
         if self.active_tab == 0:  # Processes
             table = Table(
@@ -301,19 +235,18 @@ class TaskManagerInterface:
                 expand=True,
             )
             table.add_column("PID", width=8, style="dim", no_wrap=True)
-            table.add_column("Name", style="white", ratio=1)  # Expand Name column
+            table.add_column("Name", style="white", ratio=1)
+            table.add_column("Threads", justify="right", style=secondary_hex, width=8)
+            table.add_column("Handles", justify="right", style=secondary_hex, width=8)
             table.add_column("CPU%", justify="right", style=secondary_hex, width=8)
             table.add_column("MEM%", justify="right", style=secondary_hex, width=8)
 
-            # Thread-safe rendering: Work with a local copy
             current_processes = list(self.processes)
-
             visible_rows = 20
             max_idx = len(current_processes) - 1
             if self.selected_index > max_idx:
                 self.selected_index = max_idx
 
-            # Scrolling logic
             if self.selected_index < self.scroll_offset:
                 self.scroll_offset = self.selected_index
             elif self.selected_index >= self.scroll_offset + visible_rows:
@@ -329,13 +262,14 @@ class TaskManagerInterface:
                     table.add_row(
                         str(p["pid"]),
                         p["name"],
+                        str(p.get("num_threads", 0)),
+                        str(p.get("num_handles", 0)),
                         f"{p['cpu_percent']:.1f}",
                         f"{p['memory_percent']:.1f}",
                         style=style,
                     )
-                except IndexError:
+                except (IndexError, KeyError):
                     pass
-
             console.print(table)
 
         elif self.active_tab == 2:  # Startup
@@ -352,10 +286,9 @@ class TaskManagerInterface:
                 style = f"on {suggestion_bg}" if i == self.selected_index else ""
                 status = "[green]Enabled[/]" if info["enabled"] else "[red]Disabled[/]"
                 table.add_row(name, status, style=style)
-
             console.print(table)
 
-        return ANSI(console.file.getvalue())
+        return ANSI(buffer.getvalue())
 
     def get_cpu(self):
         return ANSI(self.cpu_monitor.get_cached_frame())
@@ -370,26 +303,21 @@ class TaskManagerInterface:
         return ANSI(self.net_monitor.get_cached_frame())
 
     def get_tabs_control(self):
-        primary_hex = functions.theme.theme_logic.get_pt_color_hex(
-            functions.theme.theme_logic.current_theme["primary"]
-        )
-        secondary_hex = functions.theme.theme_logic.get_pt_color_hex(
-            functions.theme.theme_logic.current_theme["secondary"]
-        )
+        colors = get_current_theme_colors()
+        primary_hex = colors["primary"]
         tabs = ["Processes", "Performance", "Startup"]
         text = []
         for i, tab in enumerate(tabs):
-            # 3. Visual Feedback Sync: Check physical focus
-            is_focused = False
-            if self.tabs_window:
-                is_focused = self.app.layout.has_focus(self.tabs_window)
+            is_focused = (
+                self.app.layout.has_focus(self.tabs_window)
+                if self.tabs_window
+                else False
+            )
 
             if i == self.active_tab:
                 if is_focused:
-                    # Focused state: Bold Yellow (high contrast) for selection mode
-                    text.append((f"bg:#ffff00 fg:#000000 bold", f" [{tab}] "))
+                    text.append(("bg:#ffff00 fg:#000000 bold", f" [{tab}] "))
                 else:
-                    # Active state: Matrix Green (standard active)
                     text.append((f"bg:{primary_hex} fg:#000000 bold", f" [{tab}] "))
             else:
                 text.append(("class:tab", f" {tab} "))
@@ -397,10 +325,9 @@ class TaskManagerInterface:
         return text
 
     def get_hints(self):
-        is_focused = False
-        if self.tabs_window:
-            is_focused = self.app.layout.has_focus(self.tabs_window)
-
+        is_focused = (
+            self.app.layout.has_focus(self.tabs_window) if self.tabs_window else False
+        )
         if is_focused:
             return [
                 (
@@ -414,4 +341,4 @@ class TaskManagerInterface:
             ]
 
     def get_status_bar(self):
-        return [("class:status", f" E:\\ProjectDev\\cli | LAPTOP-J2I22MSG | v0.0.1 ")]
+        return [("class:status", f" {os.getcwd()} | {socket.gethostname()} | v0.0.1 ")]

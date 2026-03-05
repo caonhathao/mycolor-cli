@@ -12,13 +12,11 @@ def handle_copy_command(command_text, log_func, output_buffer, notification_trig
         flags = {
             "--last <1-3>": "Copy last N command-result pairs to clipboard (default: 1)",
             "--export <path>[optional]": "Export history to a .txt file. (Default: Documents/mycolor)",
-            "-h, --help": "Show this guide"
+            "-h, --help": "Show this guide",
         }
 
         # Generate base response
-        base_output = BaseResponseTemplate(
-            "Copy Manager", "/copy [flags]", flags
-        )
+        base_output = BaseResponseTemplate("Copy Manager", "/copy [flags]", flags)
 
         log_func(base_output)
         return
@@ -50,20 +48,23 @@ def _handle_export(parts, log_func, output_buffer, notification_trigger):
     # Config handling
     config_path = "config.json"
     config = {}
+
     if os.path.exists(config_path):
         try:
-            with open(config_path, "r") as f:
+            with open(config_path, "r", encoding="utf-8") as f:
                 config = json.load(f)
-        except:
-            pass
+        except (json.JSONDecodeError, OSError) as e:
+            print(f"Cảnh báo: Không thể đọc file config do lỗi: {e}")
 
     success, message, final_path = export_history_to_file(user_path)
 
     if success:
-        abs_path = os.path.abspath(final_path)
+        abs_path = os.path.abspath(str(final_path))
         log_func(f"[green]{abs_path}[/green]")
         if notification_trigger:
-            notification_trigger(f"Export successful! Path: {abs_path}", is_success=True)
+            notification_trigger(
+                f"Export successful! Path: {abs_path}", is_success=True
+            )
     else:
         if notification_trigger:
             notification_trigger(message, is_success=False)

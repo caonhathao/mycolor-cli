@@ -1,15 +1,16 @@
+from prompt_toolkit.filters import Condition
+from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout.containers import (
+    ConditionalContainer,
+    DynamicContainer,
     HSplit,
     VSplit,
     Window,
     WindowAlign,
-    ConditionalContainer,
-    DynamicContainer,
 )
 from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.layout.dimension import Dimension
-from prompt_toolkit.key_binding import KeyBindings
-from prompt_toolkit.filters import Condition
+
 import functions.theme.theme_logic
 from screens.taskmgr_screen import TaskManagerInterface
 
@@ -185,8 +186,6 @@ def build_taskmgr_layout(interface):
         ),
         Window(width=1, char=" "), # 1-char safety margin at edge
     ])
-
-    cols = functions.theme.theme_logic.current_window_settings.get("cols", 120)
 
     root_container = HSplit(
         [header_window, middle_area, tabs_window, hints_window, status_window],
