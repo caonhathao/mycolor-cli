@@ -20,9 +20,11 @@ class NetMonitor(BaseMonitor):
         self.last_down = 0.0
         self.last_up = 0.0
 
-    def update(self):
-        if not self.should_update():
-            return
+        # Console reuse for performance
+        self._buffer = io.StringIO()
+        self._console = Console(file=self._buffer, force_terminal=True, width=80)
+
+    def _do_update(self):
         try:
             current_io = psutil.net_io_counters()
             current_time = time()
@@ -38,7 +40,6 @@ class NetMonitor(BaseMonitor):
                 self.last_down = down_speed
                 self.last_up = up_speed
 
-                # Auto-scale max speed
                 current_max = max(down_speed, up_speed)
                 if current_max > self.max_speed:
                     self.max_speed = current_max
@@ -102,7 +103,8 @@ class NetMonitor(BaseMonitor):
             padding=(0, 1),
         )
 
-        buffer = io.StringIO()
-        console = Console(file=buffer, force_terminal=True, width=width)
-        console.print(Group(panel_down, panel_up))
-        self.cached_frame = buffer.getvalue()
+        self._buffer.seek(0)
+        self._buffer.truncate(0)
+        self._console.width = width
+        self._console.print(Group(panel_down, panel_up))
+        self.cached_frame = self._buffer.getvalue()

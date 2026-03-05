@@ -4,9 +4,12 @@ import os
 import shutil
 import socket
 from time import time
+from typing import Optional
 
 import psutil
 from prompt_toolkit.formatted_text import ANSI
+
+PROCESS_UPDATE_INTERVAL = 3.0
 from rich.console import Console
 from rich.table import Table
 
@@ -35,6 +38,17 @@ class TaskManagerInterface:
         self.last_process_fetch_time = 0
         self.procs = {}  # Cache for Process objects to maintain CPU state
 
+        # Performance optimizations
+        self._data_changed = True
+        self._cached_content: Optional[ANSI] = None
+        self._cached_content_hash: Optional[tuple] = None
+        self._content_buffer: io.StringIO = io.StringIO()
+        self._content_console: Console = Console(
+            file=self._content_buffer,
+            force_terminal=True,
+            width=120
+        )
+
         self.blueprints = {
             "mini": {
                 "blocks": {"cpu": {"w": 59, "h": 14}, "details": {"w": 0, "h": 0}},
@@ -60,6 +74,11 @@ class TaskManagerInterface:
         self.detail_panel = DetailPanel()
 
         self.app.create_background_task(self.update_loop())
+
+        # Immediate initial fetch to populate process list
+        self.fetch_processes()
+        self.last_process_fetch_time = time()
+        self._data_changed = True  # Force initial render
 
     def _load_initial_visibility(self):
         # This is now a dynamic property based on terminal width
@@ -103,40 +122,49 @@ class TaskManagerInterface:
                         colors = get_current_theme_colors()
                         secondary_hex = colors["secondary"]
 
-                        self.cpu_monitor.update()
-                        self.ram_monitor.update()
-                        self.net_monitor.update()
-                        self.gpu_monitor.update()
-
+                        # Update monitors and render only if they have new data
                         width, height = self._calculate_graph_dimensions()
-                        self.cpu_monitor.render(
-                            width, height, secondary_hex, secondary_hex
-                        )
-                        self.ram_monitor.render(
-                            width, height, secondary_hex, secondary_hex
-                        )
-                        self.gpu_monitor.render(
-                            width, height, secondary_hex, secondary_hex
-                        )
-                        self.net_monitor.render(
-                            width, height, secondary_hex, secondary_hex
-                        )
+                        if self.cpu_monitor.update():
+                            self.cpu_monitor.render(
+                                width, height, secondary_hex, secondary_hex
+                            )
+                            self._data_changed = True
+                        if self.ram_monitor.update():
+                            self.ram_monitor.render(
+                                width, height, secondary_hex, secondary_hex
+                            )
+                            self._data_changed = True
+                        if self.gpu_monitor.update():
+                            self.gpu_monitor.render(
+                                width, height, secondary_hex, secondary_hex
+                            )
+                            self._data_changed = True
+                        if self.net_monitor.update():
+                            self.net_monitor.render(
+                                width, height, secondary_hex, secondary_hex
+                            )
+                            self._data_changed = True
 
                     else:  # Processes or Startup
                         if hasattr(self.gpu_monitor, "pause"):
                             self.gpu_monitor.pause()
 
-                        if current_time - self.last_process_fetch_time >= 5.0:
+                        if self.last_process_fetch_time == 0 or (current_time - self.last_process_fetch_time) >= PROCESS_UPDATE_INTERVAL:
                             if self.active_tab == 0:
                                 self.fetch_processes()
                             elif self.active_tab == 2:
                                 self.startup_apps = list(get_startup_apps().items())
                             self.last_process_fetch_time = current_time
+                            self._data_changed = True
 
                     if self.show_sidebar:
                         self.detail_panel.update()
+                        self._data_changed = True
 
-                    self.app.invalidate()
+                    # Only invalidate when data has actually changed
+                    if self._data_changed:
+                        self.app.invalidate()
+                        self._data_changed = False
 
                 await asyncio.sleep(0.1)
         finally:
@@ -146,7 +174,6 @@ class TaskManagerInterface:
                 self.detail_panel.stop()
 
     def fetch_processes(self):
-        cpu_count = psutil.cpu_count() or 1
         new_procs = {}
         process_list = []
 
@@ -158,6 +185,7 @@ class TaskManagerInterface:
                 "memory_percent",
                 "num_threads",
                 "create_time",
+                "username",
             ]
         ):
             try:
@@ -171,9 +199,8 @@ class TaskManagerInterface:
 
                 with p.oneshot():
                     cpu = p.cpu_percent(interval=None)
-                    normalized_cpu = cpu / cpu_count
                     info = p.info
-                    info["cpu_percent"] = normalized_cpu
+                    info["cpu_percent"] = min(100.0, max(0.0, cpu))
                     info["num_handles"] = 0
                     try:
                         info["num_handles"] = p.num_handles()
@@ -187,7 +214,9 @@ class TaskManagerInterface:
 
         self.procs = new_procs
         self.processes = sorted(
-            process_list, key=lambda x: x["cpu_percent"], reverse=True
+            process_list,
+            key=lambda x: (x["cpu_percent"], x.get("memory_percent", 0)),
+            reverse=True
         )
 
     def get_header(self):
@@ -216,6 +245,30 @@ class TaskManagerInterface:
         return quad_width, quad_height
 
     def get_content(self):
+        # Create content hash to detect changes
+        if self.active_tab == 0:
+            # Include process count and memory to detect structural changes
+            mem_total = sum(p.get("memory_percent", 0) for p in self.processes[:20])
+            data_hash = (
+                len(self.processes),
+                self.selected_index,
+                self.scroll_offset,
+                mem_total,
+                tuple(p.get("cpu_percent", 0) for p in self.processes[:20])
+            )
+        elif self.active_tab == 2:
+            data_hash = (
+                len(self.startup_apps),
+                self.selected_index,
+                tuple((n, i.get("enabled")) for n, i in self.startup_apps[:20])
+            )
+        else:
+            data_hash = None
+
+        # Return cached content if nothing changed
+        if self._cached_content and self._cached_content_hash == data_hash:
+            return self._cached_content
+
         colors = get_current_theme_colors()
         primary_hex = colors["primary"]
         secondary_hex = colors["secondary"]
@@ -224,8 +277,9 @@ class TaskManagerInterface:
         term_width = shutil.get_terminal_size().columns
         console_width = max(10, term_width - 2)
 
-        buffer = io.StringIO()
-        console = Console(file=buffer, force_terminal=True, width=console_width)
+        self._content_console.width = console_width
+        self._content_buffer.seek(0)
+        self._content_buffer.truncate(0)
 
         if self.active_tab == 0:  # Processes
             table = Table(
@@ -234,12 +288,13 @@ class TaskManagerInterface:
                 box=None,
                 expand=True,
             )
-            table.add_column("PID", width=8, style="dim", no_wrap=True)
+            table.add_column("PID", width=7, style="dim", no_wrap=True)
             table.add_column("Name", style="white", ratio=1)
-            table.add_column("Threads", justify="right", style=secondary_hex, width=8)
-            table.add_column("Handles", justify="right", style=secondary_hex, width=8)
-            table.add_column("CPU%", justify="right", style=secondary_hex, width=8)
-            table.add_column("MEM%", justify="right", style=secondary_hex, width=8)
+            table.add_column("User", style="cyan", width=12)
+            table.add_column("Threads", justify="right", style=secondary_hex, width=7)
+            table.add_column("Handles", justify="right", style=secondary_hex, width=7)
+            table.add_column("CPU%", justify="right", style=secondary_hex, width=7)
+            table.add_column("MEM%", justify="right", style=secondary_hex, width=7)
 
             current_processes = list(self.processes)
             visible_rows = 20
@@ -259,9 +314,15 @@ class TaskManagerInterface:
                 try:
                     p = current_processes[i]
                     style = f"on {suggestion_bg}" if i == self.selected_index else ""
+                    username = p.get("username", "")
+                    if username:
+                        user_short = username.split("\\")[-1][:11]
+                    else:
+                        user_short = ""
                     table.add_row(
                         str(p["pid"]),
                         p["name"],
+                        user_short,
                         str(p.get("num_threads", 0)),
                         str(p.get("num_handles", 0)),
                         f"{p['cpu_percent']:.1f}",
@@ -270,7 +331,7 @@ class TaskManagerInterface:
                     )
                 except (IndexError, KeyError):
                     pass
-            console.print(table)
+            self._content_console.print(table)
 
         elif self.active_tab == 2:  # Startup
             table = Table(
@@ -286,9 +347,11 @@ class TaskManagerInterface:
                 style = f"on {suggestion_bg}" if i == self.selected_index else ""
                 status = "[green]Enabled[/]" if info["enabled"] else "[red]Disabled[/]"
                 table.add_row(name, status, style=style)
-            console.print(table)
+            self._content_console.print(table)
 
-        return ANSI(buffer.getvalue())
+        self._cached_content = ANSI(self._content_buffer.getvalue())
+        self._cached_content_hash = data_hash
+        return self._cached_content
 
     def get_cpu(self):
         return ANSI(self.cpu_monitor.get_cached_frame())
