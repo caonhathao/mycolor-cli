@@ -38,20 +38,20 @@ def build_taskmgr_layout(interface):
 
     @kb.add("up", filter=Condition(lambda: interface.active_tab != 1))
     def _(event):
-        if interface.selected_index > 0:
-            interface.selected_index -= 1
+        current_tab = interface.tabs[interface.active_tab]
+        if current_tab.selected_index > 0:
+            current_tab.selected_index -= 1
+            current_tab._data_changed = True
             interface._data_changed = True
             event.app.invalidate()
 
     @kb.add("down", filter=Condition(lambda: interface.active_tab != 1))
     def _(event):
-        limit = (
-            len(interface.processes)
-            if interface.active_tab == 0
-            else len(interface.startup_apps)
-        )
-        if interface.selected_index < limit - 1:
-            interface.selected_index += 1
+        current_tab = interface.tabs[interface.active_tab]
+        limit = len(current_tab.processes) if interface.active_tab == 0 else len(current_tab.startup_apps)
+        if current_tab.selected_index < limit - 1:
+            current_tab.selected_index += 1
+            current_tab._data_changed = True
             interface._data_changed = True
             event.app.invalidate()
 
@@ -88,18 +88,26 @@ def build_taskmgr_layout(interface):
     tabs_kb = KeyBindings()
     @tabs_kb.add("left")
     def _(event):
+        old_tab = interface.tabs[interface.active_tab]
+        old_tab.on_deactivate()
         interface.active_tab = (interface.active_tab - 1) % 3
-        interface.selected_index = 0
-        interface.scroll_offset = 0
+        new_tab = interface.tabs[interface.active_tab]
+        new_tab.selected_index = 0
+        new_tab.scroll_offset = 0
+        new_tab.on_activate()
         interface._data_changed = True
         event.app.renderer.clear()
         event.app.invalidate()
 
     @tabs_kb.add("right")
     def _(event):
+        old_tab = interface.tabs[interface.active_tab]
+        old_tab.on_deactivate()
         interface.active_tab = (interface.active_tab + 1) % 3
-        interface.selected_index = 0
-        interface.scroll_offset = 0
+        new_tab = interface.tabs[interface.active_tab]
+        new_tab.selected_index = 0
+        new_tab.scroll_offset = 0
+        new_tab.on_activate()
         interface._data_changed = True
         event.app.renderer.clear()
         event.app.invalidate()
