@@ -6,22 +6,22 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 
+from functions.theme.theme_logic import get_current_theme_colors
+
 
 class BaseMonitor:
-    def __init__(self, title="Monitor", color="green"):
+    def __init__(self, title="Monitor", color=None):
         self.title = title
-        self.color = color
+        colors = get_current_theme_colors()
+        self.color = color if color else colors.get("monitor_graph", "green")
         self.history = [0.0] * 100
         self.last_value = 0.0
         self.cached_frame = ""
-        # Vertical Column block system as requested
         self.blocks = [" ", "▂", "▃", "▄", "▅", "▆", "▇", "█"]
 
-        # Optimization: 5-second refresh rate
         self.update_interval = 5.0
         self.last_update_time = 0.0
 
-        # Console reuse for performance
         self._buffer = io.StringIO()
         self._console = Console(file=self._buffer, force_terminal=True, width=80)
 

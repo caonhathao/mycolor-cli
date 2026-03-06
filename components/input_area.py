@@ -184,7 +184,9 @@ def get_input_text_area(application_ref, output_buffer, on_accept=None):
                         decoded = line.decode("cp437", errors="replace").rstrip()
 
                     if decoded:
-                        style = "bold red" if is_stderr else color_hex
+                        colors = functions.theme.theme_logic.get_current_theme_colors()
+                        error_color = colors.get("error", "red")
+                        style = f"bold {error_color}" if is_stderr else color_hex
                         # Log to buffer and let it handle history capture
                         log_func(f"[{style}]{decoded}[/{style}]", save_to_history=True)
                         app_ref.invalidate()  # Refresh UI instantly for every line
@@ -194,7 +196,9 @@ def get_input_text_area(application_ref, output_buffer, on_accept=None):
             )
             await process.wait()
         except Exception as e:
-            log_func(f"[bold red]Error executing command: {e}[/bold red]")
+            colors = functions.theme.theme_logic.get_current_theme_colors()
+            error_color = colors.get("error", "red")
+            log_func(f"[bold {error_color}]Error executing command: {e}[/bold {error_color}]")
 
     def accept_input(buff):
         command_text = buff.text.strip()
@@ -256,23 +260,22 @@ def get_input_text_area(application_ref, output_buffer, on_accept=None):
 
             # Echo the command to history
             # New OpenCode aesthetic: Accent bar + Lighter background
+            colors = functions.theme.theme_logic.get_current_theme_colors()
+            primary_hex = colors["primary"]
+            suggestion_bg = colors.get("suggestion_bg", "#21262d")
+            table_text = colors.get("table_text", "white")
 
             history_line = Text()
-            # Part 1: Accent Bar (Purple on Lighter Gray)
-            history_line.append("▋", style=f"{primary_hex} on #21262d")
-            # Part 2: Spacing & Prompt (Cyan on Lighter Gray)
-            history_line.append("  > ", style="bold cyan on #21262d")
-            # Part 3: Command (White on Lighter Gray)
-            history_line.append(command_text, style="white on #21262d")
-            # Fill remaining width with background color (Total 80 chars)
+            history_line.append("▋", style=f"{primary_hex} on {suggestion_bg}")
+            history_line.append("  > ", style=f"bold {primary_hex} on {suggestion_bg}")
+            history_line.append(command_text, style=f"{table_text} on {suggestion_bg}")
             pad_len = 80 - history_line.cell_len
             if pad_len > 0:
-                history_line.append(" " * pad_len, style="on #21262d")
+                history_line.append(" " * pad_len, style=f"on {suggestion_bg}")
 
-            # Padding line (top/bottom)
             padding_line = Text()
-            padding_line.append("▋", style=f"{primary_hex} on #21262d")
-            padding_line.append(" " * 79, style="on #21262d")
+            padding_line.append("▋", style=f"{primary_hex} on {suggestion_bg}")
+            padding_line.append(" " * 79, style=f"on {suggestion_bg}")
 
             log_to_buffer(
                 Group(padding_line, history_line, padding_line), save_to_history=False

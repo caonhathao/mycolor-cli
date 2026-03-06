@@ -2,33 +2,94 @@ import json
 import os
 
 from prompt_toolkit.styles import Style as PTStyle
-from rich.style import Style
 
-# --- Themes ---
+# --- Theme Variables ---
+# All UI components should use these keys from current_theme dict
+
 THEMES = {
     "classic": {
-        "primary": Style(color="grey93"),
-        "secondary": Style(color="white"),
+        "primary": "#888888",
+        "secondary": "#ffffff",
         "background": "#1c1c1c",
         "suggestion_bg": "#333333",
-        "logo_gradient": ["#00ffff", "#bd5aff", "#ff00ff"],  # Cyan -> Purple -> Pink
-        "logo_shadow": "grey30",
+        "logo_gradient": ["#ffffff", "#888888", "#444444"],
+        "logo_shadow": "#696969",
+        "table_border": "#444444",
+        "table_header": "#888888",
+        "table_text": "#ffffff",
+        "active_tab": "#FFFF00",
+        "inactive_tab": "#888888",
+        "monitor_graph": "#00FF00",
+        "monitor_text": "#ffffff",
+        "success": "#00FF41",
+        "error": "#FF0000",
+        "warning": "#FFFF00",
+        "header_bg": "#1c1c1c",
+        "header_text": "#888888",
+        "cursor": "#494949",
     },
     "matrix": {
-        "primary": Style(color="green"),
-        "secondary": Style(color="red"),
+        "primary": "#00FF41",
+        "secondary": "#003B00",
         "background": "#000500",
         "suggestion_bg": "#002200",
-        "logo_gradient": ["#00ffff", "#bd5aff", "#ff00ff"],
-        "logo_shadow": "grey30",
+        "logo_gradient": ["#00FF41", "#008F11", "#003B00"],
+        "logo_shadow": "#001100",
+        "table_border": "#003B00",
+        "table_header": "#00FF41",
+        "table_text": "#00FF41",
+        "active_tab": "#00FF41",
+        "inactive_tab": "#004400",
+        "monitor_graph": "#00FF41",
+        "monitor_text": "#00FF41",
+        "success": "#00FF41",
+        "error": "#FF0000",
+        "warning": "#FFFF00",
+        "header_bg": "#000500",
+        "header_text": "#00FF41",
+        "cursor": "#00FF41",
     },
     "cyber": {
-        "primary": Style(color="purple"),
-        "secondary": Style(color="#FF69B4"),
+        "primary": "#FF007F",
+        "secondary": "#00FFFF",
         "background": "#0f0913",
         "suggestion_bg": "#2d103b",
-        "logo_gradient": ["#a020f0", "#ff007f"],  # Vibrant Purple -> Hot Pink
-        "logo_shadow": "#501078",  # Dimmed Purple
+        "logo_gradient": ["#FF007F", "#bd5aff", "#00FFFF"],
+        "logo_shadow": "#501078",
+        "table_border": "#501078",
+        "table_header": "#FF007F",
+        "table_text": "#00FFFF",
+        "active_tab": "#FF007F",
+        "inactive_tab": "#501078",
+        "monitor_graph": "#00FFFF",
+        "monitor_text": "#FF007F",
+        "success": "#00FF00",
+        "error": "#FF0000",
+        "warning": "#FFFF00",
+        "header_bg": "#0f0913",
+        "header_text": "#FF007F",
+        "cursor": "#FF007F",
+    },
+    "darcula": {
+        "primary": "#A9B7C6",
+        "secondary": "#CC7832",
+        "background": "#2B2B2B",
+        "suggestion_bg": "#3B3F41",
+        "logo_gradient": ["#CC7832", "#9876AA", "#6A8759"],
+        "logo_shadow": "#1E1E1E",
+        "table_border": "#3B3F41",
+        "table_header": "#A9B7C6",
+        "table_text": "#A9B7C6",
+        "active_tab": "#CC7832",
+        "inactive_tab": "#3B3F41",
+        "monitor_graph": "#6A8759",
+        "monitor_text": "#A9B7C6",
+        "success": "#6A8759",
+        "error": "#CC7832",
+        "warning": "#FFC66D",
+        "header_bg": "#2B2B2B",
+        "header_text": "#A9B7C6",
+        "cursor": "#A9B7C6",
     },
 }
 
@@ -37,13 +98,28 @@ DEFAULT_THEME = "matrix"
 current_theme_name = DEFAULT_THEME
 current_theme = THEMES[current_theme_name]
 
+_config_path = None
 
-def set_theme(theme_name):
-    """Sets the current theme."""
+
+def _get_config_path():
+    """Returns the path to config.json."""
+    global _config_path
+    if _config_path is None:
+        base_dir = os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
+        _config_path = os.path.join(base_dir, "config.json")
+    return _config_path
+
+
+def set_theme(theme_name, save=True):
+    """Sets the current theme. Optionally saves to config.json."""
     global current_theme_name, current_theme
     if theme_name in THEMES:
         current_theme_name = theme_name
-        current_theme = THEMES[current_theme_name]
+        current_theme = THEMES[theme_name]
+        if save:
+            save_config()
         return True
     return False
 
@@ -51,15 +127,32 @@ def set_theme(theme_name):
 def load_config():
     """Loads theme from config.json."""
     try:
-        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        config_path = os.path.join(base_dir, "config.json")
+        config_path = _get_config_path()
         with open(config_path, "r") as f:
             config = json.load(f)
             theme_name = config.get("theme")
             if theme_name:
-                set_theme(theme_name)
+                set_theme(theme_name, save=False)
     except (IOError, json.JSONDecodeError):
-        pass # Use default theme if config is missing or invalid
+        pass
+
+
+def save_config():
+    """Saves current theme to config.json."""
+    try:
+        config_path = _get_config_path()
+        try:
+            with open(config_path, "r") as f:
+                config = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            config = {}
+
+        config["theme"] = current_theme_name
+
+        with open(config_path, "w") as f:
+            json.dump(config, f, indent=4)
+    except IOError:
+        pass
 
 
 def get_current_theme():
@@ -67,27 +160,54 @@ def get_current_theme():
 
 
 def get_current_theme_colors():
-    """Returns a dictionary of hex colors for the current theme."""
-    primary_hex = get_pt_color_hex(current_theme["primary"])
-    secondary_hex = get_pt_color_hex(current_theme["secondary"])
-    return {"primary": primary_hex, "secondary": secondary_hex}
+    """Returns a dictionary of all theme colors for UI components."""
+    primary_hex = get_pt_color_hex(current_theme.get("primary"))
+    secondary_hex = get_pt_color_hex(current_theme.get("secondary"))
+    return {
+        "primary": primary_hex,
+        "secondary": secondary_hex,
+        "background": current_theme.get("background", "#1c1c1c"),
+        "suggestion_bg": current_theme.get("suggestion_bg", "#21262d"),
+        "table_border": current_theme.get("table_border", "#444444"),
+        "table_header": get_pt_color_hex(current_theme.get("table_header", "white")),
+        "table_text": get_pt_color_hex(current_theme.get("table_text", "white")),
+        "active_tab": current_theme.get("active_tab", "#FFFF00"),
+        "inactive_tab": current_theme.get("inactive_tab", "#888888"),
+        "monitor_graph": current_theme.get("monitor_graph", "#00FF00"),
+        "monitor_text": get_pt_color_hex(current_theme.get("monitor_text", "white")),
+        "success": current_theme.get("success", "green"),
+        "error": current_theme.get("error", "red"),
+        "warning": current_theme.get("warning", "yellow"),
+        "header_bg": current_theme.get("header_bg", "#1c1c1c"),
+        "header_text": current_theme.get("header_text", "white"),
+        "cursor": current_theme.get("cursor", "white"),
+    }
 
 
-def get_pt_color_hex(rich_style: Style) -> str:
-    """Converts a rich.Style's color to prompt_toolkit-compatible 6-char hex. No alpha."""
-    if rich_style and rich_style.color:
+def get_pt_color_hex(rich_style) -> str:
+    """Converts a rich.Style's color or string to prompt_toolkit-compatible 6-char hex."""
+    if rich_style is None:
+        return "#c0c0c0"
+    if isinstance(rich_style, str):
+        if rich_style.startswith("#"):
+            return rich_style
+        return rich_style
+    if hasattr(rich_style, "color") and rich_style.color:
         try:
             color_obj = rich_style.color
-            triplet = color_obj.get_truecolor()
-            return f"#{triplet.red:02x}{triplet.green:02x}{triplet.blue:02x}"
+            if hasattr(color_obj, "get_truecolor"):
+                triplet = color_obj.get_truecolor()
+                return f"#{triplet.red:02x}{triplet.green:02x}{triplet.blue:02x}"
+            elif hasattr(color_obj, "name"):
+                return color_obj.name
         except Exception:
-            pass  # Fallback on error
-    return "#c0c0c0"  # fallback
+            pass
+    return "#c0c0c0"
 
 
 def get_app_style():
     """Returns the prompt_toolkit Style object based on the current theme."""
-    primary_hex = get_pt_color_hex(current_theme['primary'])
+    primary_hex = get_pt_color_hex(current_theme["primary"])
     suggestion_bg = current_theme.get("suggestion_bg", "#21262d")
     return PTStyle.from_dict(
         {

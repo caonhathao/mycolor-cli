@@ -60,6 +60,9 @@ class StartupTab(BaseTab):
         colors = get_current_theme_colors()
         primary_hex = colors["primary"]
         suggestion_bg = colors.get("suggestion_bg", "#21262d")
+        table_text = colors.get("table_text", "white")
+        success_color = colors.get("success", "green")
+        error_color = colors.get("error", "red")
 
         console_width = max(10, term_width - 2)
         self._content_console.width = console_width
@@ -72,12 +75,12 @@ class StartupTab(BaseTab):
             box=None,
             expand=True,
         )
-        table.add_column("App Name", style="white", ratio=1)
+        table.add_column("App Name", style=table_text, ratio=1)
         table.add_column("Status", justify="right", width=15)
 
         for i, (name, info) in enumerate(self.startup_apps):
             style = f"on {suggestion_bg}" if i == self.selected_index else ""
-            status = "[green]Enabled[/]" if info["enabled"] else "[red]Disabled[/]"
+            status = f"[{success_color}]Enabled[/{success_color}]" if info["enabled"] else f"[{error_color}]Disabled[/{error_color}]"
             table.add_row(name, status, style=style)
 
         self._content_console.print(table)

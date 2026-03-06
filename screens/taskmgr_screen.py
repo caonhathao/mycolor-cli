@@ -113,8 +113,9 @@ class TaskManagerInterface:
     def get_header(self):
         colors = get_current_theme_colors()
         primary_hex = colors["primary"]
+        header_text = colors.get("header_text", "black")
         hostname = socket.gethostname()
-        return [(f"bg:{primary_hex} fg:#000000 bold", f" SYSTEM MONITOR - {hostname} ")]
+        return [(f"bg:{primary_hex} fg:{header_text} bold", f" SYSTEM MONITOR - {hostname} ")]
 
     def get_sidebar(self):
         return self.detail_panel.render(self.SIDEBAR_WIDTH)
@@ -141,6 +142,9 @@ class TaskManagerInterface:
     def get_tabs_control(self):
         colors = get_current_theme_colors()
         primary_hex = colors["primary"]
+        active_tab_color = colors.get("active_tab", "#FFFF00")
+        inactive_tab_color = colors.get("inactive_tab", "#888888")
+        header_text = colors.get("header_text", "black")
         tab_names = ["Processes", "Performance", "Startup"]
         text = []
         for i, tab in enumerate(tab_names):
@@ -152,11 +156,11 @@ class TaskManagerInterface:
 
             if i == self.active_tab:
                 if is_focused:
-                    text.append(("bg:#ffff00 fg:#000000 bold", f" [{tab}] "))
+                    text.append((f"bg:{active_tab_color} fg:{header_text} bold", f" [{tab}] "))
                 else:
-                    text.append((f"bg:{primary_hex} fg:#000000 bold", f" [{tab}] "))
+                    text.append((f"bg:{primary_hex} fg:{header_text} bold", f" [{tab}] "))
             else:
-                text.append(("class:tab", f" {tab} "))
+                text.append((f"class:tab fg:{inactive_tab_color}", f" {tab} "))
             text.append(("", "   "))
         return text
 
