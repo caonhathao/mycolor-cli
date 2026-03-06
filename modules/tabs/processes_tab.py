@@ -129,6 +129,7 @@ class ProcessesTab(BaseTab):
         primary_hex = colors["primary"]
         secondary_hex = colors["secondary"]
         suggestion_bg = colors.get("suggestion_bg", "#21262d")
+        table_text = colors.get("table_text", "white")
 
         console_width = max(10, term_width - 2)
         self._content_console.width = console_width
@@ -142,8 +143,8 @@ class ProcessesTab(BaseTab):
             expand=True,
         )
         table.add_column("PID", width=7, style="dim", no_wrap=True)
-        table.add_column("Name", style="white", ratio=1)
-        table.add_column("User", style="cyan", width=12)
+        table.add_column("Name", style=table_text, ratio=1)
+        table.add_column("User", style=primary_hex, width=12)
         table.add_column("Threads", justify="right", style=secondary_hex, width=7)
         table.add_column("Handles", justify="right", style=secondary_hex, width=7)
         table.add_column("CPU%", justify="right", style=secondary_hex, width=7)

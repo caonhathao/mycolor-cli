@@ -188,9 +188,12 @@ def generate_logo_rich_text(
     """
     word = "MYCOLOR"
 
-    # Dynamic Logo Colors: Use Primary and Secondary from theme
-    def _get_hex(s: Optional[Style]) -> str:
-        if s and isinstance(s, Style) and s.color:
+    def _get_hex(s) -> str:
+        if isinstance(s, str):
+            if s.startswith("#"):
+                return s
+            return s
+        if s and hasattr(s, "color") and s.color:
             try:
                 t = s.color.get_truecolor()
                 return f"#{t.red:02x}{t.green:02x}{t.blue:02x}"
@@ -198,15 +201,19 @@ def generate_logo_rich_text(
                 pass
         return "#ffffff"
 
-    gradient_colors = [_get_hex(theme.get("primary")), _get_hex(theme.get("secondary"))]
-    # Shadow: font-safe ░ (U+2591). Convert shadow color to 6-digit hex.
+    logo_gradient = theme.get("logo_gradient")
+    if logo_gradient and isinstance(logo_gradient, list) and len(logo_gradient) >= 2:
+        gradient_colors = [_get_hex(c) for c in logo_gradient]
+    else:
+        gradient_colors = [_get_hex(theme.get("primary")), _get_hex(theme.get("secondary"))]
+
     try:
         shadow_color = Color.parse(theme.get("logo_shadow", "grey30"))
         t = shadow_color.get_truecolor()
         shadow_hex = f"#{t.red:02x}{t.green:02x}{t.blue:02x}"
     except Exception:
-        shadow_hex = "#404040"
-    bg_hex = "#0d1117"
+        shadow_hex = _get_hex(theme.get("logo_shadow"))
+    bg_hex = theme.get("background", "#0d1117")
     if background_color_hex and len(background_color_hex.lstrip("#")) >= 6:
         bg_hex = "#" + background_color_hex.lstrip("#")[:6].lower()
 

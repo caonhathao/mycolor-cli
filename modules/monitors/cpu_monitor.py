@@ -5,8 +5,7 @@ from .base_monitor import BaseMonitor
 
 class CPUMonitor(BaseMonitor):
     def __init__(self):
-        super().__init__(title="CPU Usage", color="green")
-        # Initialize cpu_percent to start measurement
+        super().__init__(title="CPU Usage", color=None)
         psutil.cpu_percent(interval=None)
 
     def _do_update(self):

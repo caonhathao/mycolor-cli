@@ -18,6 +18,8 @@ from prompt_toolkit.document import Document
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.keys import Keys
 from prompt_toolkit.mouse_events import MouseEventType
+
+from functions.theme.theme_logic import get_current_theme_colors
 from prompt_toolkit.filters import Condition
 from rich.console import Console
 import io
@@ -202,10 +204,11 @@ def get_cmd_screen_container(input_area, output_buffer):
                     if pre_len > 0:
                         new_fragments.append((style, text[:pre_len], *rest))
 
-                    # Highlighted part (Inverted or Dark Grey bg)
+                    colors = get_current_theme_colors()
+                    selection_bg = colors.get("suggestion_bg", "#333333")
                     new_fragments.append(
                         (
-                            "class:selection bg:#333333",
+                            f"class:selection bg:{selection_bg}",
                             text[pre_len : pre_len + mid_len],
                             *rest,
                         )

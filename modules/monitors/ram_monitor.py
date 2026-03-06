@@ -5,7 +5,7 @@ from .base_monitor import BaseMonitor
 
 class RAMMonitor(BaseMonitor):
     def __init__(self):
-        super().__init__(title="RAM Usage", color="yellow")
+        super().__init__(title="RAM Usage", color=None)
 
     def _do_update(self):
         try:

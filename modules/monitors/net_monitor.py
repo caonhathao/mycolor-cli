@@ -79,7 +79,7 @@ class DynamicSpeedScaler:
 
 class NetMonitor(BaseMonitor):
     def __init__(self):
-        super().__init__(title="Network", color="blue")
+        super().__init__(title="Network", color=None)
         self.last_io = psutil.net_io_counters()
         self.last_time = time()
         self.scaler = DynamicSpeedScaler()

@@ -81,7 +81,7 @@ class WindowsGPULoader(threading.Thread):
 
 class GPUMonitor(BaseMonitor):
     def __init__(self):
-        super().__init__(title="GPU Usage", color="magenta")
+        super().__init__(title="GPU Usage", color=None)
         self.use_wmi = False
         self.loader = None
 
