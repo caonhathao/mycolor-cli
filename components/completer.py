@@ -8,7 +8,6 @@ from functions.theme.theme_logic import THEMES
 
 class DynamicCommandCompleter(Completer):
     def __init__(self):
-        # Base commands and their flags
         self.commands = {
             "/theme": ["--style", "--list", "--help", "-h"],
             "/sysinfo": [
@@ -37,7 +36,6 @@ class DynamicCommandCompleter(Completer):
         }
         self.themes = list(THEMES.keys())
 
-        # Dynamic Scan of functions directory for new commands
         try:
             current_dir = os.path.dirname(os.path.abspath(__file__))
             project_root = os.path.dirname(current_dir)
@@ -49,48 +47,54 @@ class DynamicCommandCompleter(Completer):
                     if os.path.isdir(item_path) and not item.startswith("__"):
                         cmd = f"/{item}"
                         if cmd not in self.commands:
-                            self.commands[cmd] = [
-                                "--help", "-h"
-                            ]  # Default flag for discovered commands
+                            self.commands[cmd] = ["--help", "-h"]
         except OSError:
             pass
 
     def get_completions(self, document: Document, complete_event):
         text = document.text_before_cursor
+        text_stripped = text.lstrip()
 
-        # 1. Command Completion (start of line)
-        if " " not in text.lstrip():
-            word = text.lstrip()
+        if not text_stripped:
+            return
+
+        if " " not in text_stripped:
+            word = text_stripped
             if word.startswith("/"):
-                for cmd in self.commands:
-                    if word in cmd:  # Fuzzy/Substring match
+                word_lower = word.lower()
+                for cmd in sorted(self.commands.keys()):
+                    if cmd.startswith(word_lower):
                         yield Completion(cmd, start_position=-len(word))
             return
 
-        # 2. Flag/Argument Completion
-        parts = text.lstrip().split()
+        parts = text_stripped.split()
         if not parts:
             return
 
         cmd = parts[0]
-        if cmd in self.commands:
-            current_word = parts[-1] if not text.endswith(" ") else ""
+        if cmd not in self.commands:
+            return
 
-            # Context: /theme --style [theme_name]
-            prev_word = (
-                parts[-1]
-                if text.endswith(" ")
-                else (parts[-2] if len(parts) > 1 else "")
-            )
-            if cmd == "/theme" and prev_word == "--style":
+        current_word = parts[-1] if not text_stripped.endswith(" ") else ""
+
+        if cmd == "/theme" and current_word in ["--style", "-s"]:
+            prev_word = parts[-2] if len(parts) > 1 and not text_stripped.endswith(" ") else ""
+            if prev_word == "--style" or prev_word == "-s":
                 for theme in self.themes:
                     if current_word.lower() in theme.lower():
                         yield Completion(theme, start_position=-len(current_word))
                 return
 
-            # Suggest Flags
-            if current_word.startswith("-"):
-                flags = self.commands[cmd]
-                for flag in flags:
-                    if current_word in flag:
-                        yield Completion(flag, start_position=-len(current_word))
+            if not current_word.startswith("-"):
+                return
+
+            for flag in self.commands[cmd]:
+                if current_word in flag:
+                    yield Completion(flag, start_position=-len(current_word))
+            return
+
+        if current_word.startswith("-"):
+            flags = self.commands[cmd]
+            for flag in flags:
+                if current_word in flag:
+                    yield Completion(flag, start_position=-len(current_word))

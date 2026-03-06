@@ -3,7 +3,6 @@ import os
 import sys
 
 from prompt_toolkit.styles import Style as PTStyle
-from rich.style import Style
 
 DEFAULT_CONFIG = {
     "theme": "matrix",
