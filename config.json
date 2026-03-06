@@ -1,5 +1,5 @@
 {
-    "theme": "classic",
+    "theme": "darcula",
     "window_settings": {
         "cols": 120,
         "lines": 30,
@@ -14,5 +14,7 @@
             ]
         }
     },
+    "process_update_interval": 3.0,
+    "net_max_speed_mbps": 100,
     "last_export_path": ""
 }

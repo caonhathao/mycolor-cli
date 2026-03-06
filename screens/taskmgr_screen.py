@@ -142,9 +142,9 @@ class TaskManagerInterface:
     def get_tabs_control(self):
         colors = get_current_theme_colors()
         primary_hex = colors["primary"]
-        active_tab_color = colors.get("active_tab", "#FFFF00")
+        tab_accent = colors.get("tab_accent", colors.get("active_tab", "#FFFF00"))
         inactive_tab_color = colors.get("inactive_tab", "#888888")
-        header_text = colors.get("header_text", "black")
+        header_text = colors.get("header_text", "white")
         tab_names = ["Processes", "Performance", "Startup"]
         text = []
         for i, tab in enumerate(tab_names):
@@ -155,10 +155,10 @@ class TaskManagerInterface:
             )
 
             if i == self.active_tab:
-                if is_focused:
-                    text.append((f"bg:{active_tab_color} fg:{header_text} bold", f" [{tab}] "))
-                else:
-                    text.append((f"bg:{primary_hex} fg:{header_text} bold", f" [{tab}] "))
+                bracket_style = f"fg:{tab_accent} bold"
+                text.append((f"fg:{header_text}", f"["))
+                text.append((bracket_style, f"{tab}"))
+                text.append((f"fg:{header_text}", f"]"))
             else:
                 text.append((f"class:tab fg:{inactive_tab_color}", f" {tab} "))
             text.append(("", "   "))

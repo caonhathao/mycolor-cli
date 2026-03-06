@@ -17,7 +17,7 @@ def get_tips_renderable(theme: dict):
     if isinstance(background, str):
         background_style = Style(bgcolor=background)
     else:
-        background_style = Style()
+        background_style = Style(bgcolor="#1c1c1c")
     
     tips_style = primary_style + background_style
 
