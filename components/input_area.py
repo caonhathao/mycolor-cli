@@ -17,7 +17,7 @@ from prompt_toolkit.layout.containers import (
     ConditionalContainer,
     DynamicContainer,
 )
-from prompt_toolkit.filters import Condition
+from prompt_toolkit.filters import Condition, Never, Always
 from prompt_toolkit.formatted_text import Template
 
 import functions.theme.theme_logic
@@ -381,28 +381,49 @@ def get_input_text_area(application_ref, output_buffer, on_accept=None):
         # Invalidate the application to force a redraw
         application_ref.invalidate()
 
+    history = InMemoryHistory()
+
     text_area = TextArea(
         multiline=False,
         completer=command_completer,
         complete_while_typing=True,
         accept_handler=accept_input,
-        history=InMemoryHistory(),
+        history=history,
         auto_suggest=AutoSuggestFromHistory(),
         prompt=[("class:prompt-prefix", " > ")],
         style="class:input-field",
     )
+
+    # Disable history search on the buffer to fix backspace completion
+    if text_area.buffer:
+        text_area.buffer.enable_history_search = Never()
 
     return text_area
 
 
 def get_input_key_bindings(application_ref):
     """Returns key bindings for the main application."""
+    from prompt_toolkit.keys import Keys
+    from prompt_toolkit.filters import HasFocus
+
     kb = KeyBindings()
 
     @kb.add("c-c", eager=True)
     @kb.add("c-q", eager=True)
-    def _(event):
+    def quit_app(event):
         """Pressing Ctrl-C or Ctrl-Q will exit the user interface."""
         event.app.exit()
+
+    @kb.add("backspace")
+    def _(event):
+        """
+        Custom backspace handler to ensure completions are re-triggered on deletion.
+        """
+        # Standard backspace behavior
+        event.current_buffer.delete_before_cursor()
+        # Force re-trigger completion
+        buffer = event.current_buffer
+        if buffer.completer:
+            buffer.start_completion(select_first=False)
 
     return kb
