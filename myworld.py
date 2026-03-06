@@ -17,10 +17,12 @@ from prompt_toolkit.widgets import TextArea
 from rich.console import Console
 
 from components.input_area import get_input_key_bindings, get_input_text_area
-from functions.theme.theme_logic import get_app_style, load_config
+from functions.theme.theme_logic import ensure_config_exists, get_app_style, load_config
 from layout.taskmgr_layout import get_taskmgr_layout
 from screens.cmd_screen import get_cmd_screen_container
 from screens.intro_screen import get_intro_screen_container
+
+ensure_config_exists()
 
 
 def early_window_resize():
@@ -30,15 +32,16 @@ def early_window_resize():
     """
     if platform.system() == "Windows":
         try:
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-            config_path = os.path.join(base_dir, "config.json")
-            with open(config_path, "r") as f:
-                config = json.load(f)
-                ws = config.get("window_settings", {})
-                cols = ws.get("cols", 120)
-                lines = ws.get("lines", 30)
-                os.system(f"mode con: cols={cols} lines={lines}")
-                time.sleep(0.3)  # Allow buffer to settle
+            from functions.theme.theme_logic import _get_config_path
+            config_path = _get_config_path()
+            if os.path.exists(config_path):
+                with open(config_path, "r") as f:
+                    config = json.load(f)
+                    ws = config.get("window_settings", {})
+                    cols = ws.get("cols", 120)
+                    lines = ws.get("lines", 30)
+                    os.system(f"mode con: cols={cols} lines={lines}")
+                    time.sleep(0.3)
         except Exception:
             pass
 

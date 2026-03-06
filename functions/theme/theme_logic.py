@@ -1,10 +1,28 @@
 import json
 import os
+import sys
 
 from prompt_toolkit.styles import Style as PTStyle
+from rich.style import Style
 
-# --- Theme Variables ---
-# All UI components should use these keys from current_theme dict
+DEFAULT_CONFIG = {
+    "theme": "matrix",
+    "window_settings": {
+        "cols": 120,
+        "lines": 30,
+        "auto_resize": True,
+        "force_full_width": True
+    },
+    "layout_visibility": {
+        "performance": {
+            "show_sidebar": False,
+            "rendered_components": ["graphs"]
+        }
+    },
+    "process_update_interval": 3.0,
+    "net_max_speed_mbps": 100,
+    "last_export_path": ""
+}
 
 THEMES = {
     "classic": {
@@ -18,6 +36,7 @@ THEMES = {
         "table_header": "#888888",
         "table_text": "#ffffff",
         "active_tab": "#FFFF00",
+        "tab_accent": "#FFFF00",
         "inactive_tab": "#888888",
         "monitor_graph": "#00FF00",
         "monitor_text": "#ffffff",
@@ -39,6 +58,7 @@ THEMES = {
         "table_header": "#00FF41",
         "table_text": "#00FF41",
         "active_tab": "#00FF41",
+        "tab_accent": "#00FF41",
         "inactive_tab": "#004400",
         "monitor_graph": "#00FF41",
         "monitor_text": "#00FF41",
@@ -60,6 +80,7 @@ THEMES = {
         "table_header": "#FF007F",
         "table_text": "#00FFFF",
         "active_tab": "#FF007F",
+        "tab_accent": "#FF007F",
         "inactive_tab": "#501078",
         "monitor_graph": "#00FFFF",
         "monitor_text": "#FF007F",
@@ -81,6 +102,7 @@ THEMES = {
         "table_header": "#A9B7C6",
         "table_text": "#A9B7C6",
         "active_tab": "#CC7832",
+        "tab_accent": "#CC7832",
         "inactive_tab": "#3B3F41",
         "monitor_graph": "#6A8759",
         "monitor_text": "#A9B7C6",
@@ -99,17 +121,74 @@ current_theme_name = DEFAULT_THEME
 current_theme = THEMES[current_theme_name]
 
 _config_path = None
+_fallback_path_used = False
 
 
 def _get_config_path():
-    """Returns the path to config.json."""
+    """Returns the path to config.json, handling frozen (.exe) mode."""
     global _config_path
-    if _config_path is None:
-        base_dir = os.path.dirname(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        )
-        _config_path = os.path.join(base_dir, "config.json")
+    if _config_path is not None:
+        return _config_path
+
+    if getattr(sys, "frozen", False):
+        base_dir = os.path.dirname(sys.executable)
+    else:
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+    _config_path = os.path.join(base_dir, "config.json")
     return _config_path
+
+
+def get_config_dir():
+    """Returns the directory where config should be stored."""
+    if getattr(sys, "frozen", False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    )
+
+
+def ensure_config_exists():
+    """Creates default config.json if it doesn't exist. Returns path to config."""
+    global _fallback_path_used
+
+    config_path = _get_config_path()
+
+    try:
+        if os.path.exists(config_path):
+            return config_path
+    except OSError:
+        pass
+
+    default_config = DEFAULT_CONFIG.copy()
+    config_dir = get_config_dir()
+    test_write_path = os.path.join(config_dir, ".write_test")
+
+    try:
+        with open(test_write_path, "w") as f:
+            f.write("test")
+        os.remove(test_write_path)
+        write_dir = config_dir
+    except (IOError, OSError):
+        write_dir = os.path.join(os.environ.get("APPDATA", ""), "MyWorldCLI")
+        _fallback_path_used = True
+
+    try:
+        os.makedirs(write_dir, exist_ok=True)
+    except OSError:
+        write_dir = os.environ.get("TEMP", "")
+
+    config_path = os.path.join(write_dir, "config.json")
+
+    try:
+        with open(config_path, "w") as f:
+            json.dump(default_config, f, indent=4)
+        _config_path = config_path
+        print(f"[MYCOLOR] Created default config at: {config_path}")
+    except (IOError, OSError):
+        pass
+
+    return config_path
 
 
 def set_theme(theme_name, save=True):
@@ -172,6 +251,7 @@ def get_current_theme_colors():
         "table_header": get_pt_color_hex(current_theme.get("table_header", "white")),
         "table_text": get_pt_color_hex(current_theme.get("table_text", "white")),
         "active_tab": current_theme.get("active_tab", "#FFFF00"),
+        "tab_accent": current_theme.get("tab_accent", "#FFFF00"),
         "inactive_tab": current_theme.get("inactive_tab", "#888888"),
         "monitor_graph": current_theme.get("monitor_graph", "#00FF00"),
         "monitor_text": get_pt_color_hex(current_theme.get("monitor_text", "white")),
