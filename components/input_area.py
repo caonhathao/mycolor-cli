@@ -214,6 +214,20 @@ def get_input_text_area(application_ref, output_buffer, on_accept=None):
         if clear_notification:
             clear_notification()
 
+        # Check for pending kill confirmation
+        from functions.system.system_cmd import get_pending_kill, confirm_and_execute_kill
+        pending = get_pending_kill()
+        if pending:
+            cmd_lower = command_text.lower().strip()
+            if cmd_lower in ("y", "yes"):
+                confirm_and_execute_kill(log_to_buffer)
+                buff.reset()
+                return True
+            else:
+                log_to_buffer("[bold yellow]Operation aborted by user.[/bold yellow]")
+                buff.reset()
+                return True
+
         # Fetch dynamic colors for semantic highlighting
         primary_hex = functions.theme.theme_logic.get_pt_color_hex(
             functions.theme.theme_logic.current_theme["primary"]
@@ -288,7 +302,9 @@ def get_input_text_area(application_ref, output_buffer, on_accept=None):
         elif command_text.startswith("/sysinfo"):
             handle_sysinfo_command(log_to_buffer, command_text)
         elif command_text.startswith("/system"):
-            handle_system_command(log_to_buffer, command_text)
+            from screens.cmd_screen import get_notification_trigger
+            notification_trigger = get_notification_trigger()
+            handle_system_command(log_to_buffer, command_text, notification_trigger)
         elif command_text == "/help":
             handle_help_command(log_to_buffer)
         elif command_text.startswith("/copy"):

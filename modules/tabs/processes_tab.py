@@ -142,7 +142,7 @@ class ProcessesTab(BaseTab):
             box=None,
             expand=True,
         )
-        table.add_column("PID", width=7, style="dim", no_wrap=True)
+        table.add_column("PID", width=7, style="#00FFFF bold", no_wrap=True)
         table.add_column("Name", style=table_text, ratio=1)
         table.add_column("User", style=primary_hex, width=12)
         table.add_column("Threads", justify="right", style=secondary_hex, width=7)
