@@ -2,6 +2,7 @@ import io
 import asyncio
 import os
 from functools import partial
+import hashlib
 
 from rich.console import Console, Group
 from rich.text import Text
@@ -29,6 +30,19 @@ from functions.clear import handle_clear_command
 from functions.copy.copy_cmd import handle_copy_command
 from components.completer import DynamicCommandCompleter
 from modules.tracker.history_tracker import get_history_tracker
+
+_ANSI_BUFFER = io.StringIO()
+_ANSI_CONSOLE = Console(file=_ANSI_BUFFER, force_terminal=True, width=80, color_system="truecolor")
+_PLAIN_BUFFER = io.StringIO()
+_PLAIN_CONSOLE = Console(file=_PLAIN_BUFFER, force_terminal=True, width=80, color_system=None)
+
+
+def rich_to_ansi(text):
+    """Convert Rich markup string to ANSI escape codes."""
+    _ANSI_BUFFER.seek(0)
+    _ANSI_BUFFER.truncate(0)
+    _ANSI_CONSOLE.print(text, end="")
+    return _ANSI_BUFFER.getvalue()
 
 
 class RoundedBorder:
@@ -132,34 +146,54 @@ def get_input_text_area(application_ref, output_buffer, on_accept=None):
 
     def log_to_buffer(renderable, save_to_history=True):
         """Renders a Rich object to ANSI string and appends to output buffer."""
-        buffer = io.StringIO()
-        temp_console = Console(file=buffer, force_terminal=True, width=80)
-        temp_console.print(renderable)
-        ansi_output = buffer.getvalue().rstrip()
+        global _ANSI_BUFFER, _ANSI_CONSOLE, _PLAIN_BUFFER, _PLAIN_CONSOLE
+        
+        _ANSI_BUFFER.seek(0)
+        _ANSI_BUFFER.truncate(0)
+        
+        is_rich_renderable = (
+            hasattr(renderable, "__rich_console__") 
+            or hasattr(renderable, "__rich__")
+            or isinstance(renderable, Group)
+        )
+        
+        if is_rich_renderable:
+            _ANSI_CONSOLE.print(renderable)
+            ansi_output = _ANSI_BUFFER.getvalue()
+            
+            if save_to_history:
+                _PLAIN_BUFFER.seek(0)
+                _PLAIN_BUFFER.truncate(0)
+                _PLAIN_CONSOLE.print(renderable)
+                plain_text = _PLAIN_BUFFER.getvalue()
+                get_history_tracker().append_result(plain_text)
+        else:
+            _ANSI_CONSOLE.print(str(renderable))
+            ansi_output = _ANSI_BUFFER.getvalue()
+            
+            if save_to_history:
+                plain_text = str(renderable)
+                get_history_tracker().append_result(plain_text)
 
-        # Shadow History Capture
-        if save_to_history:
-            # Render to plain text for history
-            buffer = io.StringIO()
-            txt_console = Console(
-                file=buffer, 
-                force_terminal=True, 
-                width=80, 
-                color_system=None
-            )
-            txt_console.print(renderable)
-            plain_text = buffer.getvalue()
-            get_history_tracker().append_result(plain_text)
-
-        # Fix Buffer Clipping: Use insert_text to keep history
-        # We need to bypass read_only constraint of the TextArea
         was_read_only = output_buffer.read_only
         output_buffer.read_only = False
         try:
             output_buffer.buffer.cursor_position = len(output_buffer.buffer.text)
             if output_buffer.buffer.text:
                 output_buffer.buffer.insert_text("\n")
-            output_buffer.buffer.insert_text(ansi_output)
+            output_buffer.buffer.insert_text(ansi_output.rstrip("\n"))
+            
+            output_buffer.buffer.cursor_position = len(output_buffer.buffer.text)
+            
+            try:
+                with open("render_debug.log", "a", encoding="utf-8") as f:
+                    f.write(f"Cmd: inserted {len(ansi_output)} chars, buffer now {len(output_buffer.buffer.text)}\n")
+                from prompt_toolkit.application import get_app
+                app = get_app()
+                app.layout.focus(output_buffer)
+                app.invalidate()
+            except Exception:
+                pass
         finally:
             output_buffer.read_only = was_read_only
 

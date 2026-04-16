@@ -16,5 +16,7 @@
     },
     "process_update_interval": 3.0,
     "net_max_speed_mbps": 100,
-    "last_export_path": ""
+    "last_export_path": "",
+    "show_system_processes": false,
+    "hide_system_exes": []
 }

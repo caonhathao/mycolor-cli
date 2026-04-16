@@ -23,6 +23,7 @@ from functions.theme.theme_logic import get_current_theme_colors
 from prompt_toolkit.filters import Condition
 from rich.console import Console
 import io
+import re
 
 from components.footer import get_footer_container
 from components.input_area import RoundedFrame
@@ -66,6 +67,7 @@ def get_cmd_screen_container(input_area, output_buffer):
             self.notification_task: asyncio.Task | None = None
             self.notification_message = ""
             self.cached_text = ""
+            self.cached_text_hash = 0
             self.cached_lines = []
 
         def get_sorted_coords(self):
@@ -146,92 +148,23 @@ def get_cmd_screen_container(input_area, output_buffer):
         return NotImplemented
 
     # --- Content Generation with Highlighting ---
+
     def get_formatted_content():
-        # Cache ANSI parsing for performance
+        import re
+
         current_text = output_buffer.text
-        if state.cached_text != current_text:
-            state.cached_text = current_text
-            # Optimization: Cache the lines structure to avoid re-splitting on every render
-            state.cached_lines = list(
-                split_lines(to_formatted_text(ANSI(current_text)))
-            )
+        
+        if not current_text:
+            return []
 
-        lines = state.cached_lines
-        start, end = state.get_sorted_coords()
-
-        if not start or not end:
-            # Return flattened lines if no selection
-            flat_fragments = []
-            for line in lines:
-                flat_fragments.extend(line)
-                flat_fragments.append(("", "\n"))
-            if flat_fragments and flat_fragments[-1] == ("", "\n"):
-                flat_fragments.pop()
-            return flat_fragments
-
-        # Apply highlighting
-        new_fragments = []
-
-        # 1. Lines before selection
-        for i in range(start[0]):
-            new_fragments.extend(lines[i])
-            new_fragments.append(("", "\n"))
-
-        # 2. Lines involved in selection
-        for i in range(start[0], min(end[0] + 1, len(lines))):
-            line = lines[i]
-            # Calculate range for this line
-            s_col = start[1] if i == start[0] else 0
-            e_col = end[1] if i == end[0] else 999999
-
-            # Rebuild line with highlight
-            current_col = 0
-            for style, text, *rest in line:
-                text_len = len(text)
-                # Check overlap
-                seg_start = current_col
-                seg_end = current_col + text_len
-
-                # Intersection logic
-                highlight_start = max(seg_start, s_col)
-                highlight_end = min(seg_end, e_col + 1)
-
-                if highlight_start < highlight_end:
-                    # Split segment
-                    pre_len = highlight_start - seg_start
-                    mid_len = highlight_end - highlight_start
-
-                    if pre_len > 0:
-                        new_fragments.append((style, text[:pre_len], *rest))
-
-                    colors = get_current_theme_colors()
-                    selection_bg = colors.get("suggestion_bg", "#333333")
-                    new_fragments.append(
-                        (
-                            f"class:selection bg:{selection_bg}",
-                            text[pre_len : pre_len + mid_len],
-                            *rest,
-                        )
-                    )
-
-                    if pre_len + mid_len < text_len:
-                        new_fragments.append((style, text[pre_len + mid_len :], *rest))
-                else:
-                    new_fragments.append((style, text, *rest))
-
-                current_col += text_len
-            new_fragments.append(("", "\n"))
-
-        # 3. Lines after selection
-        for i in range(end[0] + 1, len(lines)):
-            new_fragments.extend(lines[i])
-            new_fragments.append(("", "\n"))
-
-        # Remove last newline added by loop
-        if new_fragments and new_fragments[-1] == ("", "\n"):
-            new_fragments.pop()
-
-        return new_fragments
+        try:
+            if "\x1b[" in current_text:
+                return to_formatted_text(ANSI(current_text))
+            else:
+                return to_formatted_text(current_text)
+        except Exception as e:
+            plain_text = re.sub(r'\x1b\[[0-9;]*[mK]', '', current_text)
+            return to_formatted_text(plain_text)
 
     # Output Buffer Window
     history_control = FormattedTextControl(
