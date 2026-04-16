@@ -424,6 +424,14 @@ def get_input_text_area(application_ref, output_buffer, on_accept=None):
             # Add exactly ONE empty line of space after the Result/Output
             log_to_buffer("", save_to_history=False)
 
+        # --- MANDATORY FIX: Manually append command to history ---
+        if command_text:
+            try:
+                buff.history.append_string(command_text)
+            except Exception:
+                pass
+        # ----------------------------------------------------
+
         # Clear the buffer for the next command
         buff.reset()
         
@@ -451,7 +459,7 @@ def get_input_text_area(application_ref, output_buffer, on_accept=None):
     return text_area
 
 
-def get_input_key_bindings(application_ref):
+def get_input_key_bindings(application_ref, output_buffer=None):
     """Returns key bindings for the main application."""
     from prompt_toolkit.keys import Keys
     from prompt_toolkit.filters import HasFocus
@@ -464,16 +472,56 @@ def get_input_key_bindings(application_ref):
         """Pressing Ctrl-C or Ctrl-Q will exit the user interface."""
         event.app.exit()
 
+    @kb.add("escape", "q")
+    def alt_q_quit(event):
+        """Alt+Q triggers /quit to exit the application."""
+        event.app.exit()
+
     @kb.add("backspace")
     def _(event):
-        """
-        Custom backspace handler to ensure completions are re-triggered on deletion.
-        """
-        # Standard backspace behavior
+        """Custom backspace handler to ensure completions are re-triggered on deletion."""
         event.current_buffer.delete_before_cursor()
-        # Force re-trigger completion
         buffer = event.current_buffer
         if buffer.completer:
             buffer.start_completion(select_first=False)
+
+    @kb.add("c-l", eager=True)
+    def clear_terminal(event):
+        """Ctrl+L triggers /clear command to flush terminal history."""
+        if output_buffer:
+            from functions.clear import handle_clear_command
+            handle_clear_command(output_buffer)
+            event.app.invalidate()
+
+    @kb.add("escape", "c")
+    def alt_c_clear(event):
+        """Alt+C clears current input line."""
+        event.current_buffer.text = ""
+        event.app.invalidate()
+
+    @kb.add("c-v", eager=True)
+    def ctrl_v_paste(event):
+        """Ctrl+V - Paste from clipboard."""
+        try:
+            import pyperclip
+            clipboard_data = pyperclip.paste()
+            if clipboard_data:
+                event.current_buffer.insert_text(clipboard_data)
+        except Exception:
+            pass
+
+    @kb.add("s-up", eager=True)
+    def shift_up_history(event):
+        """Shift+Up - cycle backward through command history."""
+        event.current_buffer.history_backward()
+        event.current_buffer.cursor_position = len(event.current_buffer.text)
+        event.app.invalidate()
+
+    @kb.add("s-down", eager=True)
+    def shift_down_history(event):
+        """Shift+Down - cycle forward through command history."""
+        event.current_buffer.history_forward()
+        event.current_buffer.cursor_position = len(event.current_buffer.text)
+        event.app.invalidate()
 
     return kb

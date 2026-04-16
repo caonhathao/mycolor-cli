@@ -132,6 +132,10 @@ async def main_app(mode="default"):
         style="class:output-field", read_only=True, scrollbar=True, focus_on_click=True
     )
 
+    # Update key bindings with output_buffer after it's created
+    kb = get_input_key_bindings(application, output_buffer)
+    application.key_bindings = kb
+
     # State Management
     app_state = {"current_screen": "intro" if mode == "default" else mode}
     setattr(application, "app_state", app_state)

@@ -35,11 +35,12 @@ def handle_help_command(log_to_buffer):
     log_to_buffer("")
 
     shortcuts = [
-        ("Tab", "Switch between Focus/Input"),
-        ("Ctrl+C", "Clear current input line"),
+        ("Shift+Up/Down", "Navigate command history (Inject to input)"),
+        ("Up/Down", "Navigate suggestion menu (When visible)"),
+        ("Alt+C", "Clear current input line"),
+        ("Ctrl+V", "Paste text to input"),
         ("Ctrl+L", "Quick trigger for /clear"),
-        ("Arrows", "Navigate command history / Task Manager"),
-        ("q", "Quick exit from Task Manager"),
+        ("Alt+Q", "Quick trigger for /quit"),
     ]
 
     for key, desc in shortcuts:
