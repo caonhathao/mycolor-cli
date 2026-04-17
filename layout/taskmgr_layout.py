@@ -14,6 +14,9 @@ from prompt_toolkit.layout.dimension import Dimension
 import functions.theme.theme_logic
 from screens.taskmgr_screen import TaskManagerInterface
 
+TAB_PROCESSES = 0
+REFRESH_INTERVAL = 3.0
+
 
 def get_taskmgr_layout(app):
     """
@@ -35,25 +38,6 @@ def build_taskmgr_layout(interface):
         return interface.active_tab == 1 and interface.show_sidebar
 
     kb = KeyBindings()
-
-    @kb.add("up", filter=Condition(lambda: interface.active_tab != 1))
-    def _(event):
-        current_tab = interface.tabs[interface.active_tab]
-        if current_tab.selected_index > 0:
-            current_tab.selected_index -= 1
-            current_tab._data_changed = True
-            interface._data_changed = True
-            event.app.invalidate()
-
-    @kb.add("down", filter=Condition(lambda: interface.active_tab != 1))
-    def _(event):
-        current_tab = interface.tabs[interface.active_tab]
-        limit = len(current_tab.processes) if interface.active_tab == 0 else len(current_tab.startup_apps)
-        if current_tab.selected_index < limit - 1:
-            current_tab.selected_index += 1
-            current_tab._data_changed = True
-            interface._data_changed = True
-            event.app.invalidate()
 
     @kb.add("q")
     def _(event):
@@ -86,7 +70,8 @@ def build_taskmgr_layout(interface):
 
     # 2. Isolate Footer Keybindings
     tabs_kb = KeyBindings()
-    @tabs_kb.add("left")
+    
+    @kb.add("left")
     def _(event):
         old_tab = interface.tabs[interface.active_tab]
         old_tab.on_deactivate()
@@ -95,11 +80,17 @@ def build_taskmgr_layout(interface):
         new_tab.selected_index = 0
         new_tab.scroll_offset = 0
         new_tab.on_activate()
+        
+        # Immediate data fetch for Processes tab
+        if interface.active_tab == TAB_PROCESSES:
+            import time
+            new_tab.update(time.time())
+        
         interface._data_changed = True
         event.app.renderer.clear()
         event.app.invalidate()
 
-    @tabs_kb.add("right")
+    @kb.add("right")
     def _(event):
         old_tab = interface.tabs[interface.active_tab]
         old_tab.on_deactivate()
@@ -108,6 +99,12 @@ def build_taskmgr_layout(interface):
         new_tab.selected_index = 0
         new_tab.scroll_offset = 0
         new_tab.on_activate()
+        
+        # Immediate data fetch for Processes tab
+        if interface.active_tab == TAB_PROCESSES:
+            import time
+            new_tab.update(time.time())
+        
         interface._data_changed = True
         event.app.renderer.clear()
         event.app.invalidate()
@@ -173,22 +170,12 @@ def build_taskmgr_layout(interface):
 
     dynamic_content = DynamicContainer(get_content_container)
 
-    # 1. Force Physical Focus
+    # 1. Force Physical Focus - Removed: Direct arrow key navigation now works globally
+    # Tab key now disabled to prevent focus trap
+
     @kb.add("tab")
     def _(event):
-        if interface.active_tab == 1:
-            event.app.layout.focus(tabs_window)
-            interface.focus_mode = "tabs"
-        else:
-            if event.app.layout.has_focus(tabs_window):
-                # Focus back to content
-                event.app.layout.focus(content_window)
-                interface.focus_mode = "content"
-            else:
-                # Force focus to the footer
-                event.app.layout.focus(tabs_window)
-                interface.focus_mode = "tabs"
-        event.app.invalidate()
+        pass  # Disabled: arrow keys now work globally for tab switching
 
     # 2. Strict 1-Char Spacing: Main VSplit structure
     middle_area = VSplit([

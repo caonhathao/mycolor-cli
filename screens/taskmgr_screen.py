@@ -10,6 +10,8 @@ from functions.theme.theme_logic import get_current_theme_colors
 from modules.panels.detail_panel import DetailPanel
 from modules.tabs import ProcessesTab, PerformanceTab, StartupTab
 
+REFRESH_INTERVAL = 3.0
+
 
 class TaskManagerInterface:
     TAB_PROCESSES = 0
@@ -89,20 +91,23 @@ class TaskManagerInterface:
 
                 if self.app.app_state.get("current_screen") == "taskmgr":
                     current_time = time()
-                    current_tab = self.tabs[self.active_tab]
 
+                    # Active Unloading: Only update the ACTIVE tab
+                    current_tab = self.tabs[self.active_tab]
                     if current_tab.update(current_time):
                         self._data_changed = True
 
-                    if self.show_sidebar:
-                        self.detail_panel.update()
-                        self._data_changed = True
+                    # Conditional Detail Panel: Only update if sidebar visible AND not Performance tab
+                    # Performance tab has its own graphs, sidebar shows different info
+                    if self.show_sidebar and self.active_tab != self.TAB_PERFORMANCE:
+                        if self.detail_panel.update():
+                            self._data_changed = True
 
                     if self._data_changed:
                         self.app.invalidate()
                         self._data_changed = False
 
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(REFRESH_INTERVAL)
         finally:
             if hasattr(self, "gpu_monitor"):
                 if hasattr(self.tabs[self.TAB_PERFORMANCE].gpu_monitor, "stop"):
@@ -165,20 +170,9 @@ class TaskManagerInterface:
         return text
 
     def get_hints(self):
-        is_focused = (
-            self.app.layout.has_focus(self.tabs_window) if self.tabs_window else False
-        )
-        if is_focused:
-            return [
-                (
-                    "class:footer-pad",
-                    " Left/Right: Switch Tab | Tab: Return to Content ",
-                )
-            ]
-        else:
-            return [
-                ("class:footer-pad", " q: Quit | Tab: Focus Tabs | Arrows: Navigate ")
-            ]
+        return [
+            ("class:footer-pad", " q: Quit | Left/Right: Switch Tabs ")
+        ]
 
     def get_status_bar(self):
         return [("class:status", f" {os.getcwd()} | {socket.gethostname()} | v0.0.1 ")]

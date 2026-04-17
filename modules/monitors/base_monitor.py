@@ -19,7 +19,7 @@ class BaseMonitor:
         self.cached_frame = ""
         self.blocks = [" ", "▂", "▃", "▄", "▅", "▆", "▇", "█"]
 
-        self.update_interval = 5.0
+        self.update_interval = 3.0
         self.last_update_time = 0.0
 
         self._buffer = io.StringIO()
@@ -27,6 +27,10 @@ class BaseMonitor:
 
     def should_update(self):
         """Check if enough time has passed to perform an update."""
+        # First render: update immediately without waiting
+        if self.last_update_time == 0:
+            return True
+        
         current_time = monotonic()
         if current_time - self.last_update_time >= self.update_interval:
             self.last_update_time = current_time
@@ -45,6 +49,13 @@ class BaseMonitor:
 
     def get_cached_frame(self):
         return self.cached_frame
+
+    def clear_data(self):
+        """Clear monitor data to free memory when tab is inactive."""
+        self.history = [0.0] * 100
+        self.cached_frame = ""
+        self.last_value = 0.0
+        self.last_update_time = 0.0
 
     def _get_graph_text(self, data, width, height, color):
         data_slice = data[-width:]

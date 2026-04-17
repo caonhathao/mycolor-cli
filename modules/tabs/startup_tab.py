@@ -10,8 +10,9 @@ from rich.table import Table
 from functions.system.system_logic import get_startup_apps
 from functions.theme.theme_logic import get_current_theme_colors
 from .base_tab import BaseTab
+from ..constants import REFRESH_INTERVAL
 
-STARTUP_UPDATE_INTERVAL = 30.0
+STARTUP_UPDATE_INTERVAL = REFRESH_INTERVAL
 UI_OFFSET = 5
 
 
@@ -69,6 +70,14 @@ class StartupTab(BaseTab):
         self._content_buffer.seek(0)
         self._content_buffer.truncate(0)
 
+        if len(self.startup_apps) == 0:
+            self._content_console.print(f"[bold {primary_hex}]Startup Applications[/bold {primary_hex}]")
+            self._content_console.print("[dim]Loading...[/dim]")
+            self._content_console.print("[dim]Press Left/Right to switch tabs[/dim]")
+            self._cached_content = ANSI(self._content_buffer.getvalue())
+            self._cached_content_hash = data_hash
+            return self._cached_content
+
         table = Table(
             show_header=True,
             header_style=f"bold {primary_hex}",
@@ -93,4 +102,11 @@ class StartupTab(BaseTab):
         self._data_changed = True
 
     def on_deactivate(self):
-        pass
+        self.startup_apps = []
+        self._cached_content = None
+        self._cached_content_hash = None
+
+    def clear_data(self):
+        self.startup_apps = []
+        self._cached_content = None
+        self._cached_content_hash = None

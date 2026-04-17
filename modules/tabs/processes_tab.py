@@ -11,8 +11,9 @@ from rich.console import Console
 
 from functions.theme.theme_logic import get_current_theme_colors
 from .base_tab import BaseTab
+from ..constants import REFRESH_INTERVAL, PROCESS_LIMIT
 
-PROCESS_UPDATE_INTERVAL = 3.0
+PROCESS_UPDATE_INTERVAL = REFRESH_INTERVAL
 UI_OFFSET = 5
 
 _ANSI_BUFFER = io.StringIO()
@@ -76,7 +77,10 @@ class ProcessesTab(BaseTab):
 
     def update(self, current_time: float) -> bool:
         config = _load_config()
-        config_hash = hash(str(config.get("show_system_processes", True)))
+        taskmgr_config = config.get("taskmgr", {})
+        show_system = taskmgr_config.get("exclude_system_apps", True)
+        
+        config_hash = hash(str(show_system))
         
         if (
             self.last_fetch_time == 0
@@ -98,11 +102,19 @@ class ProcessesTab(BaseTab):
 
         show_system = config.get("show_system_processes", True)
         hide_system_exes = config.get("hide_system_exes", [])
+        
+        taskmgr_config = config.get("taskmgr", {})
+        process_limit = taskmgr_config.get("process_limit", PROCESS_LIMIT)
+        
+        collected = 0
 
         for p in psutil.process_iter([
             "pid", "name", "cpu_percent", "memory_percent", 
             "num_threads", "create_time", "username"
         ]):
+            if collected >= process_limit:
+                break
+                
             try:
                 pid = p.info["pid"]
                 current_pids.add(pid)
@@ -117,13 +129,17 @@ class ProcessesTab(BaseTab):
 
                 new_procs[pid] = p
                 process_batch.append(p)
+                collected += 1
 
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 pass
 
         batch_pids = {p.pid for p in process_batch}
 
+        collected = 0
         for p in process_batch:
+            if collected >= process_limit:
+                break
             try:
                 pid = p.pid
                 with p.oneshot():
@@ -153,6 +169,7 @@ class ProcessesTab(BaseTab):
                         pass
 
                 process_list.append(info)
+                collected += 1
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 pass
 
@@ -194,10 +211,25 @@ class ProcessesTab(BaseTab):
         visible_rows = self.visible_rows
         total_count = len(current_processes)
 
+        colors = get_current_theme_colors()
+        w = COL_WIDTHS
+
+        _ANSI_BUFFER.seek(0)
+        _ANSI_BUFFER.truncate(0)
+
         if total_count == 0:
-            _ANSI_BUFFER.seek(0)
-            _ANSI_BUFFER.truncate(0)
-            _ANSI_CONSOLE.print("[dim]No processes found.[/dim]")
+            header_parts = [
+                f"[bold #00FFFF]{'PID':<{w['pid']}}[/]",
+                f"[bold white]{'Process Name':<{w['name']}}[/]",
+                f"[bold #FFFFFF]{'User':<{w['user']}}[/]",
+                f"[bold #00FF88]{'Threads':>{w['threads']}}[/]",
+                f"[bold #00FF88]{'Handles':>{w['handles']}}[/]",
+                f"[bold #00FF88]{'CPU %':>{w['cpu']}}[/]",
+                f"[bold #00FF88]{'Memory %':>{w['mem']}}[/]",
+            ]
+            _ANSI_CONSOLE.print(" ".join(header_parts))
+            _ANSI_CONSOLE.print("[dim]Loading processes...[/dim]")
+            _ANSI_CONSOLE.print("[dim]Press Left/Right to switch tabs[/dim]")
             self._cached_content = ANSI(_ANSI_BUFFER.getvalue())
             return self._cached_content
 
@@ -276,4 +308,13 @@ class ProcessesTab(BaseTab):
         self._data_changed = True
 
     def on_deactivate(self):
-        pass
+        self.processes = []
+        self.procs = {}
+        self._cached_content = None
+        self._cached_process_hash = None
+
+    def clear_data(self):
+        self.processes = []
+        self.procs = {}
+        self._cached_content = None
+        self._cached_process_hash = None

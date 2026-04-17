@@ -73,3 +73,7 @@ class PerformanceTab(BaseTab):
     def on_deactivate(self):
         if hasattr(self.gpu_monitor, "pause"):
             self.gpu_monitor.pause()
+        self.cpu_monitor.clear_data()
+        self.ram_monitor.clear_data()
+        self.gpu_monitor.clear_data()
+        self.net_monitor.clear_data()

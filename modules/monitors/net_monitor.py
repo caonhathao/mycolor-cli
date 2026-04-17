@@ -92,6 +92,13 @@ class NetMonitor(BaseMonitor):
         self._buffer = io.StringIO()
         self._console = Console(file=self._buffer, force_terminal=True, width=80)
 
+    def clear_data(self):
+        super().clear_data()
+        self.down_history = [0.0] * 100
+        self.up_history = [0.0] * 100
+        self.last_down = 0.0
+        self.last_up = 0.0
+
     def _do_update(self):
         import psutil
         try:
