@@ -17,6 +17,9 @@ except ImportError:
     pythoncom = None
 
 
+GPU_FAILURE_LIMIT = 3
+
+
 class WindowsGPULoader(threading.Thread):
     def __init__(self):
         super().__init__()
@@ -84,37 +87,14 @@ class GPUMonitor(BaseMonitor):
         super().__init__(title="GPU Usage", color=None)
         self.use_wmi = False
         self.loader = None
-
-        # Detect if we should use WMI (Windows + No GPUtil or GPUtil found nothing)
-        if platform.system() == "Windows":
-            has_nvidia = False
-            if GPUtil:
-                try:
-                    if GPUtil.getGPUs():
-                        has_nvidia = True
-                except Exception:
-                    pass
-
-            if not has_nvidia and wmi:
-                self.use_wmi = True
-                self.loader = WindowsGPULoader()
-                self.loader.start()
+        self._initialized = False
+        self._failure_count = 0
+        self._disabled = True  # Disabled by default - causes freezes
 
     def _do_update(self):
-        val = 0.0
-
-        if self.use_wmi and self.loader:
-            val = self.loader.latest_usage
-        elif GPUtil:
-            try:
-                gpus = GPUtil.getGPUs()
-                if gpus:
-                    val = gpus[0].load * 100.0
-            except Exception:
-                pass
-
-        self.last_value = val
-        self.history.append(val)
+        # GPU monitoring disabled for stability
+        self.last_value = 0.0
+        self.history.append(0.0)
         if len(self.history) > 200:
             self.history.pop(0)
 

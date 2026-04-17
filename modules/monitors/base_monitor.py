@@ -1,4 +1,7 @@
 import io
+import os
+import json
+import threading
 from time import monotonic
 
 from rich.align import Align
@@ -7,6 +10,20 @@ from rich.panel import Panel
 from rich.text import Text
 
 from functions.theme.theme_logic import get_current_theme_colors
+
+
+def _load_interval():
+    try:
+        config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "config.json")
+        if os.path.exists(config_path):
+            with open(config_path, "r", encoding="utf-8") as f:
+                return json.load(f).get("process_update_interval", 3.0)
+    except Exception:
+        pass
+    return 3.0
+
+
+_MONITOR_INTERVAL = _load_interval()
 
 
 class BaseMonitor:
@@ -19,11 +36,17 @@ class BaseMonitor:
         self.cached_frame = ""
         self.blocks = [" ", "▂", "▃", "▄", "▅", "▆", "▇", "█"]
 
-        self.update_interval = 3.0
+        self.update_interval = _MONITOR_INTERVAL
         self.last_update_time = 0.0
 
         self._buffer = io.StringIO()
         self._console = Console(file=self._buffer, force_terminal=True, width=80)
+
+        self._data_lock = threading.Lock()
+
+    def get_cached_frame_safe(self):
+        with self._data_lock:
+            return self.cached_frame
 
     def should_update(self):
         """Check if enough time has passed to perform an update."""
@@ -46,6 +69,9 @@ class BaseMonitor:
 
     def _do_update(self):
         pass
+
+    def set_error_state(self):
+        self.last_value = 0.0
 
     def get_cached_frame(self):
         return self.cached_frame

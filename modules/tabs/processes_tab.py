@@ -3,6 +3,7 @@ import os
 import json
 import shutil
 import re
+import threading
 from typing import Optional, List, Dict, Any
 
 import psutil
@@ -69,6 +70,7 @@ class ProcessesTab(BaseTab):
         self.visible_rows = 20
         self._data_changed = True
         self._last_config_hash = 0
+        self._data_lock = threading.Lock()
 
         psutil.cpu_percent(interval=None)
 
@@ -87,7 +89,8 @@ class ProcessesTab(BaseTab):
             or (current_time - self.last_fetch_time) >= PROCESS_UPDATE_INTERVAL
             or config_hash != self._last_config_hash
         ):
-            self._fetch_processes(config)
+            with self._data_lock:
+                self._fetch_processes(config)
             self.last_fetch_time = current_time
             self._data_changed = True
             self._last_config_hash = config_hash
@@ -95,90 +98,53 @@ class ProcessesTab(BaseTab):
         return False
 
     def _fetch_processes(self, config: Dict[str, Any]):
-        current_pids = set()
         process_list: List[Dict[str, Any]] = []
-        new_procs: Dict[int, Any] = {}
-        process_batch: List[Any] = []
-
-        show_system = config.get("show_system_processes", True)
-        hide_system_exes = config.get("hide_system_exes", [])
         
         taskmgr_config = config.get("taskmgr", {})
         process_limit = taskmgr_config.get("process_limit", PROCESS_LIMIT)
+        show_system = taskmgr_config.get("exclude_system_apps", True)
         
         collected = 0
+        skip_system = show_system
 
-        for p in psutil.process_iter([
-            "pid", "name", "cpu_percent", "memory_percent", 
-            "num_threads", "create_time", "username"
-        ]):
+        for p in psutil.process_iter(["pid", "name", "username", "exe"]):
             if collected >= process_limit:
                 break
-                
             try:
                 pid = p.info["pid"]
-                current_pids.add(pid)
-
-                if pid in self.procs:
-                    cached_p = self.procs[pid]
-                    try:
-                        if cached_p.is_running():
-                            p = cached_p
-                    except (psutil.NoSuchProcess, psutil.AccessDenied):
-                        pass
-
-                new_procs[pid] = p
-                process_batch.append(p)
-                collected += 1
-
-            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                pass
-
-        batch_pids = {p.pid for p in process_batch}
-
-        collected = 0
-        for p in process_batch:
-            if collected >= process_limit:
-                break
-            try:
-                pid = p.pid
-                with p.oneshot():
-                    username = p.username()
-                    name = p.name()
+                name = p.info.get("name", "")
+                username = p.info.get("username", "N/A")
+                exe_path = p.info.get("exe", "")
+                
+                if skip_system and exe_path and "C:\\Windows" in exe_path:
+                    continue
                     
-                    if not show_system:
-                        user_lower = username.lower()
-                        if any(su in user_lower for su in SYSTEM_USERS):
-                            continue
-                        if name.lower() in hide_system_exes or name.lower() in SYSTEM_EXES:
-                            if name.lower() not in {"explorer.exe"}:
-                                continue
-
-                    info = {
-                        "pid": pid,
-                        "name": name,
-                        "cpu_percent": min(100.0, max(0.0, p.cpu_percent(interval=None))),
-                        "memory_percent": p.memory_percent(),
-                        "num_threads": p.num_threads(),
-                        "username": username,
-                        "num_handles": 0,
-                    }
-                    try:
+                info = {
+                    "pid": pid,
+                    "name": name,
+                    "cpu_percent": 0.0,
+                    "memory_percent": 0.0,
+                    "num_threads": 0,
+                    "username": username,
+                    "num_handles": 0,
+                }
+                
+                try:
+                    with p.oneshot():
+                        info["cpu_percent"] = min(100.0, max(0.0, p.cpu_percent(interval=None)))
+                        info["memory_percent"] = p.memory_percent()
+                        info["num_threads"] = p.num_threads()
                         info["num_handles"] = p.num_handles()
-                    except (AttributeError, psutil.AccessDenied):
-                        pass
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
 
                 process_list.append(info)
                 collected += 1
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 pass
 
-        dead_pids = set(self.procs.keys()) - batch_pids
-        for pid in dead_pids:
-            del self.procs[pid]
-
-        self.procs = new_procs
         self.processes = sorted(process_list, key=lambda x: x["pid"])
+        self.procs = {}
 
     def _format_row(self, pid_str: str, name_str: str, user_str: str, 
                     threads: int, handles: int, cpu_pct: float, mem_pct: float,
@@ -207,7 +173,9 @@ class ProcessesTab(BaseTab):
         term_height = shutil.get_terminal_size().lines
         self.visible_rows = max(5, term_height - UI_OFFSET)
 
-        current_processes = list(self.processes)
+        with self._data_lock:
+            current_processes = list(self.processes)
+        
         visible_rows = self.visible_rows
         total_count = len(current_processes)
 

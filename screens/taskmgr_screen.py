@@ -2,15 +2,30 @@ import asyncio
 import os
 import shutil
 import socket
+import threading
 from time import time
+import json as json_lib
 
 from prompt_toolkit.formatted_text import ANSI
 
-from functions.theme.theme_logic import get_current_theme_colors
+from functions.theme.theme_logic import get_current_theme_colors, _get_config_path
 from modules.panels.detail_panel import DetailPanel
 from modules.tabs import ProcessesTab, PerformanceTab, StartupTab
 
-REFRESH_INTERVAL = 3.0
+
+def _load_taskmgr_config():
+    try:
+        config_path = _get_config_path()
+        if os.path.exists(config_path):
+            with open(config_path, "r", encoding="utf-8") as f:
+                return json_lib.load(f)
+    except Exception:
+        pass
+    return {"process_update_interval": 3.0, "taskmgr": {"process_limit": 20, "exclude_system_apps": True}}
+
+
+_taskmgr_config = _load_taskmgr_config()
+REFRESH_INTERVAL = _taskmgr_config.get("process_update_interval", 3.0)
 
 
 class TaskManagerInterface:
@@ -28,6 +43,8 @@ class TaskManagerInterface:
         self.tabs_window = None
 
         self._data_changed = True
+        self._stop_event = threading.Event()
+        self._data_lock = threading.Lock()
 
         self.blueprints = {
             "mini": {
@@ -54,7 +71,12 @@ class TaskManagerInterface:
 
         self.detail_panel = DetailPanel()
 
-        self.app.create_background_task(self.update_loop())
+        self._worker_thread = threading.Thread(target=self._background_worker, daemon=True)
+        self._worker_thread.start()
+
+        perf_tab = self.tabs[self.TAB_PERFORMANCE]
+        if hasattr(perf_tab, 'start_workers'):
+            perf_tab.start_workers(REFRESH_INTERVAL)
 
         self._data_changed = True
 
@@ -70,6 +92,62 @@ class TaskManagerInterface:
         self.MID_GAP = bp["spacers"]["mid_gap"]
         self.RIGHT_PADDING = bp["spacers"]["right_padding"]
         self.current_mode = mode
+
+    def _background_worker(self):
+        while not self._stop_event.is_set():
+            try:
+                if self.app.app_state.get("current_screen") == "taskmgr":
+                    current_time = time()
+                    current_tab = self.tabs[self.active_tab]
+                    
+                    if current_tab.update(current_time):
+                        with self._data_lock:
+                            self._data_changed = True
+
+                        if self.show_sidebar and self.active_tab != self.TAB_PERFORMANCE:
+                            if self.detail_panel.update():
+                                with self._data_lock:
+                                    self._data_changed = True
+            except Exception:
+                pass
+
+            self._stop_event.wait(REFRESH_INTERVAL)
+
+        try:
+            perf_tab = self.tabs[self.TAB_PERFORMANCE]
+            if hasattr(perf_tab, 'stop_workers'):
+                perf_tab.stop_workers()
+        except Exception:
+            pass
+        try:
+            if hasattr(self, "detail_panel") and hasattr(self.detail_panel, "stop"):
+                self.detail_panel.stop()
+        except Exception:
+            pass
+
+    def switch_tab(self, direction):
+        old_tab = self.tabs[self.active_tab]
+        old_tab.on_deactivate()
+        self.active_tab = (self.active_tab + direction) % 3
+        new_tab = self.tabs[self.active_tab]
+        new_tab.selected_index = 0
+        new_tab.scroll_offset = 0
+        new_tab.on_activate()
+        
+        if hasattr(new_tab, 'start_workers'):
+            new_tab.start_workers(REFRESH_INTERVAL)
+        
+        with self._data_lock:
+            self._data_changed = True
+            if hasattr(new_tab, 'last_fetch_time'):
+                new_tab.last_fetch_time = 0
+        
+        self.app.renderer.clear()
+        self.app.invalidate()
+
+    def stop(self):
+        self._stop_event.set()
+        self.running = False
 
     async def update_loop(self):
         try:
@@ -90,30 +168,14 @@ class TaskManagerInterface:
                     self.app.invalidate()
 
                 if self.app.app_state.get("current_screen") == "taskmgr":
-                    current_time = time()
+                    with self._data_lock:
+                        if self._data_changed:
+                            self.app.invalidate()
+                            self._data_changed = False
 
-                    # Active Unloading: Only update the ACTIVE tab
-                    current_tab = self.tabs[self.active_tab]
-                    if current_tab.update(current_time):
-                        self._data_changed = True
-
-                    # Conditional Detail Panel: Only update if sidebar visible AND not Performance tab
-                    # Performance tab has its own graphs, sidebar shows different info
-                    if self.show_sidebar and self.active_tab != self.TAB_PERFORMANCE:
-                        if self.detail_panel.update():
-                            self._data_changed = True
-
-                    if self._data_changed:
-                        self.app.invalidate()
-                        self._data_changed = False
-
-                await asyncio.sleep(REFRESH_INTERVAL)
+                await asyncio.sleep(0.1)
         finally:
-            if hasattr(self, "gpu_monitor"):
-                if hasattr(self.tabs[self.TAB_PERFORMANCE].gpu_monitor, "stop"):
-                    self.tabs[self.TAB_PERFORMANCE].gpu_monitor.stop()
-            if hasattr(self, "detail_panel") and hasattr(self.detail_panel, "stop"):
-                self.detail_panel.stop()
+            self._stop_event.set()
 
     def get_header(self):
         colors = get_current_theme_colors()
@@ -130,19 +192,19 @@ class TaskManagerInterface:
 
     def get_cpu(self):
         perf_tab = self.tabs[self.TAB_PERFORMANCE]
-        return ANSI(perf_tab.cpu_monitor.get_cached_frame())
+        return ANSI(perf_tab.cpu_monitor.get_cached_frame_safe())
 
     def get_ram(self):
         perf_tab = self.tabs[self.TAB_PERFORMANCE]
-        return ANSI(perf_tab.ram_monitor.get_cached_frame())
+        return ANSI(perf_tab.ram_monitor.get_cached_frame_safe())
 
     def get_gpu(self):
         perf_tab = self.tabs[self.TAB_PERFORMANCE]
-        return ANSI(perf_tab.gpu_monitor.get_cached_frame())
+        return ANSI(perf_tab.gpu_monitor.get_cached_frame_safe())
 
     def get_network(self):
         perf_tab = self.tabs[self.TAB_PERFORMANCE]
-        return ANSI(perf_tab.net_monitor.get_cached_frame())
+        return ANSI(perf_tab.net_monitor.get_cached_frame_safe())
 
     def get_tabs_control(self):
         colors = get_current_theme_colors()
@@ -153,12 +215,6 @@ class TaskManagerInterface:
         tab_names = ["Processes", "Performance", "Startup"]
         text = []
         for i, tab in enumerate(tab_names):
-            is_focused = (
-                self.app.layout.has_focus(self.tabs_window)
-                if self.tabs_window
-                else False
-            )
-
             if i == self.active_tab:
                 bracket_style = f"fg:{tab_accent} bold"
                 text.append((f"fg:{header_text}", f"["))
@@ -171,7 +227,7 @@ class TaskManagerInterface:
 
     def get_hints(self):
         return [
-            ("class:footer-pad", " q: Quit | Left/Right: Switch Tabs ")
+            ("class:footer-pad", " q: Quit | ←→: Switch Tabs ")
         ]
 
     def get_status_bar(self):

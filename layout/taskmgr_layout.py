@@ -39,9 +39,9 @@ def build_taskmgr_layout(interface):
 
     kb = KeyBindings()
 
-    @kb.add("q")
+    @kb.add("q", eager=True)
     def _(event):
-        interface.running = False  # Stop background task
+        interface.stop()
         event.app.exit()
 
     # --- Layout Components ---
@@ -65,49 +65,19 @@ def build_taskmgr_layout(interface):
     sidebar_window = Window(
         content=FormattedTextControl(interface.get_sidebar),
         style="class:output-field",
-        width=lambda: interface.SIDEBAR_WIDTH,  # Dynamic width
+        width=lambda: interface.SIDEBAR_WIDTH,
     )
 
     # 2. Isolate Footer Keybindings
     tabs_kb = KeyBindings()
     
-    @kb.add("left")
+    @kb.add("left", eager=True)
     def _(event):
-        old_tab = interface.tabs[interface.active_tab]
-        old_tab.on_deactivate()
-        interface.active_tab = (interface.active_tab - 1) % 3
-        new_tab = interface.tabs[interface.active_tab]
-        new_tab.selected_index = 0
-        new_tab.scroll_offset = 0
-        new_tab.on_activate()
-        
-        # Immediate data fetch for Processes tab
-        if interface.active_tab == TAB_PROCESSES:
-            import time
-            new_tab.update(time.time())
-        
-        interface._data_changed = True
-        event.app.renderer.clear()
-        event.app.invalidate()
+        interface.switch_tab(-1)
 
-    @kb.add("right")
+    @kb.add("right", eager=True)
     def _(event):
-        old_tab = interface.tabs[interface.active_tab]
-        old_tab.on_deactivate()
-        interface.active_tab = (interface.active_tab + 1) % 3
-        new_tab = interface.tabs[interface.active_tab]
-        new_tab.selected_index = 0
-        new_tab.scroll_offset = 0
-        new_tab.on_activate()
-        
-        # Immediate data fetch for Processes tab
-        if interface.active_tab == TAB_PROCESSES:
-            import time
-            new_tab.update(time.time())
-        
-        interface._data_changed = True
-        event.app.renderer.clear()
-        event.app.invalidate()
+        interface.switch_tab(1)
 
     tabs_window = Window(
         content=FormattedTextControl(interface.get_tabs_control, key_bindings=tabs_kb),
