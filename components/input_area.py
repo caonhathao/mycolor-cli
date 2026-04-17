@@ -186,8 +186,6 @@ def get_input_text_area(application_ref, output_buffer, on_accept=None):
             output_buffer.buffer.cursor_position = len(output_buffer.buffer.text)
             
             try:
-                with open("render_debug.log", "a", encoding="utf-8") as f:
-                    f.write(f"Cmd: inserted {len(ansi_output)} chars, buffer now {len(output_buffer.buffer.text)}\n")
                 from prompt_toolkit.application import get_app
                 app = get_app()
                 app.layout.focus(output_buffer)
@@ -461,9 +459,6 @@ def get_input_text_area(application_ref, output_buffer, on_accept=None):
 
 def get_input_key_bindings(application_ref, output_buffer=None):
     """Returns key bindings for the main application."""
-    from prompt_toolkit.keys import Keys
-    from prompt_toolkit.filters import HasFocus
-
     kb = KeyBindings()
 
     @kb.add("c-c", eager=True)
@@ -476,14 +471,6 @@ def get_input_key_bindings(application_ref, output_buffer=None):
     def alt_q_quit(event):
         """Alt+Q triggers /quit to exit the application."""
         event.app.exit()
-
-    @kb.add("backspace")
-    def _(event):
-        """Custom backspace handler to ensure completions are re-triggered on deletion."""
-        event.current_buffer.delete_before_cursor()
-        buffer = event.current_buffer
-        if buffer.completer:
-            buffer.start_completion(select_first=False)
 
     @kb.add("c-l", eager=True)
     def clear_terminal(event):

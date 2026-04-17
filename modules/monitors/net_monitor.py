@@ -1,7 +1,6 @@
 import io
 from time import time
 
-import psutil
 from rich.align import Align
 from rich.console import Console, Group
 from rich.panel import Panel
@@ -79,6 +78,7 @@ class DynamicSpeedScaler:
 
 class NetMonitor(BaseMonitor):
     def __init__(self):
+        import psutil
         super().__init__(title="Network", color=None)
         self.last_io = psutil.net_io_counters()
         self.last_time = time()
@@ -93,6 +93,7 @@ class NetMonitor(BaseMonitor):
         self._console = Console(file=self._buffer, force_terminal=True, width=80)
 
     def _do_update(self):
+        import psutil
         try:
             current_io = psutil.net_io_counters()
             current_time = time()

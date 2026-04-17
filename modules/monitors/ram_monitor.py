@@ -1,5 +1,3 @@
-import psutil
-
 from .base_monitor import BaseMonitor
 
 
@@ -8,6 +6,7 @@ class RAMMonitor(BaseMonitor):
         super().__init__(title="RAM Usage", color=None)
 
     def _do_update(self):
+        import psutil
         try:
             val = psutil.virtual_memory().percent
             self.last_value = val

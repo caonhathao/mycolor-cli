@@ -102,7 +102,7 @@ class TaskManagerInterface:
                         self.app.invalidate()
                         self._data_changed = False
 
-                await asyncio.sleep(0.1)
+                await asyncio.sleep(0.5)
         finally:
             if hasattr(self, "gpu_monitor"):
                 if hasattr(self.tabs[self.TAB_PERFORMANCE].gpu_monitor, "stop"):

@@ -147,7 +147,7 @@ def get_cmd_screen_container(input_area, output_buffer):
         # Disable all other mouse interactions (selection, right-click)
         return NotImplemented
 
-    # --- Content Generation with Highlighting ---
+    # --- Content Generation with Caching ---
 
     def get_formatted_content():
         import re
@@ -157,14 +157,26 @@ def get_cmd_screen_container(input_area, output_buffer):
         if not current_text:
             return []
 
+        # Logic-Gate: Check cache first
+        if current_text == state.cached_text and state.cached_lines:
+            return state.cached_lines
+
+        # Cache miss: compute expensive conversion
         try:
             if "\x1b[" in current_text:
-                return to_formatted_text(ANSI(current_text))
+                formatted = to_formatted_text(ANSI(current_text))
             else:
-                return to_formatted_text(current_text)
+                formatted = to_formatted_text(current_text)
         except Exception as e:
             plain_text = re.sub(r'\x1b\[[0-9;]*[mK]', '', current_text)
-            return to_formatted_text(plain_text)
+            formatted = to_formatted_text(plain_text)
+
+        # Update cache
+        state.cached_text = current_text
+        state.cached_text_hash = hash(current_text)
+        state.cached_lines = formatted
+        
+        return formatted
 
     # Output Buffer Window
     history_control = FormattedTextControl(
