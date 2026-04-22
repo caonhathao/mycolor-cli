@@ -3,6 +3,7 @@ import os
 import shutil
 import threading
 import time
+from time import monotonic
 from .base_tab import BaseTab
 from modules.monitors.cpu_monitor import CPUMonitor
 from modules.monitors.gpu_monitor import GPUMonitor
@@ -30,6 +31,18 @@ class PerformanceTab(BaseTab):
         
         self._worker_threads = []
         self._stop_event = threading.Event()
+        self._last_invalidate_time = 0.0
+        self._invalidate_lock = threading.Lock()
+
+    def _try_invalidate(self):
+        current_time = monotonic()
+        if current_time - self._last_invalidate_time >= 0.1:
+            with self._invalidate_lock:
+                if current_time - self._last_invalidate_time >= 0.1:
+                    self._last_invalidate_time = current_time
+                    if self.parent.app.app_state.get("current_screen") == "taskmgr":
+                        if self.parent.active_tab == self.parent.TAB_PERFORMANCE:
+                            self.parent.app.invalidate()
 
     def start_workers(self, interval):
         if self._worker_threads:
@@ -38,6 +51,8 @@ class PerformanceTab(BaseTab):
         def worker_cpu_ram():
             while not self._stop_event.is_set():
                 try:
+                    with open("worker.log", "a") as f:
+                        f.write(f"[{monotonic():.3f}] WORKER START:cpu_ram\n")
                     width, height = self._calculate_graph_dimensions()
                     if self.cpu_monitor.update():
                         with self.cpu_monitor._data_lock:
@@ -45,39 +60,46 @@ class PerformanceTab(BaseTab):
                     if self.ram_monitor.update():
                         with self.ram_monitor._data_lock:
                             self.ram_monitor.render(width, height)
-                    if self.parent.app.app_state.get("current_screen") == "taskmgr":
-                        if self.parent.active_tab == self.parent.TAB_PERFORMANCE:
-                            self.parent.app.invalidate()
+                    self._try_invalidate()
+                    with open("worker.log", "a") as f:
+                        f.write(f"[{monotonic():.3f}] WORKER END:cpu_ram\n")
                 except Exception:
-                    pass
+                    with open("worker.log", "a") as f:
+                        f.write(f"[{monotonic():.3f}] WORKER ERROR:cpu_ram\n")
                 self._stop_event.wait(interval)
         
         def worker_gpu():
             while not self._stop_event.is_set():
                 try:
+                    with open("worker.log", "a") as f:
+                        f.write(f"[{monotonic():.3f}] WORKER START:gpu\n")
                     width, height = self._calculate_graph_dimensions()
                     if self.gpu_monitor.update():
                         with self.gpu_monitor._data_lock:
                             self.gpu_monitor.render(width, height)
-                    if self.parent.app.app_state.get("current_screen") == "taskmgr":
-                        if self.parent.active_tab == self.parent.TAB_PERFORMANCE:
-                            self.parent.app.invalidate()
+                    self._try_invalidate()
+                    with open("worker.log", "a") as f:
+                        f.write(f"[{monotonic():.3f}] WORKER END:gpu\n")
                 except Exception:
-                    pass
+                    with open("worker.log", "a") as f:
+                        f.write(f"[{monotonic():.3f}] WORKER ERROR:gpu\n")
                 self._stop_event.wait(interval * 2)
         
         def worker_net():
             while not self._stop_event.is_set():
                 try:
+                    with open("worker.log", "a") as f:
+                        f.write(f"[{monotonic():.3f}] WORKER START:net\n")
                     width, height = self._calculate_graph_dimensions()
                     if self.net_monitor.update():
                         with self.net_monitor._data_lock:
                             self.net_monitor.render(width, height)
-                    if self.parent.app.app_state.get("current_screen") == "taskmgr":
-                        if self.parent.active_tab == self.parent.TAB_PERFORMANCE:
-                            self.parent.app.invalidate()
+                    self._try_invalidate()
+                    with open("worker.log", "a") as f:
+                        f.write(f"[{monotonic():.3f}] WORKER END:net\n")
                 except Exception:
-                    pass
+                    with open("worker.log", "a") as f:
+                        f.write(f"[{monotonic():.3f}] WORKER ERROR:net\n")
                 self._stop_event.wait(interval)
         
         t1 = threading.Thread(target=worker_cpu_ram, daemon=True)

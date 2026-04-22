@@ -16,6 +16,7 @@ from screens.taskmgr_screen import TaskManagerInterface
 
 TAB_PROCESSES = 0
 REFRESH_INTERVAL = 3.0
+_current_interface = None
 
 
 def get_taskmgr_layout(app):
@@ -23,8 +24,16 @@ def get_taskmgr_layout(app):
     Initializes the Task Manager interface and builds the layout.
     Returns (root_container, initial_focus_element).
     """
+    global _current_interface
     interface = TaskManagerInterface(app)
-    return build_taskmgr_layout(interface)
+    _current_interface = interface
+    container, focus = build_taskmgr_layout(interface)
+    return container, focus
+
+
+def get_current_taskmgr_interface():
+    """Returns the current TaskManagerInterface instance."""
+    return _current_interface
 
 
 def build_taskmgr_layout(interface):
@@ -39,16 +48,14 @@ def build_taskmgr_layout(interface):
 
     kb = KeyBindings()
 
-    @kb.add("q", eager=True)
-    def _(event):
-        interface.stop()
-        event.app.exit()
+    # NOTE: q handler moved to Application-level in myworld.py
+    # to ensure it works regardless of focus state
 
     # --- Layout Components ---
 
-    # 1. Fix Focus Integrity: Create a focusable window for the main content
+    # 1. Fix Focus Integrity: Create a NON-focusable window for the main content
     content_window = Window(
-        content=FormattedTextControl(interface.get_content, focusable=True),
+        content=FormattedTextControl(interface.get_content, focusable=False),
         style="class:output-field",
         height=Dimension(weight=1),
         width=Dimension(weight=1),
@@ -71,13 +78,8 @@ def build_taskmgr_layout(interface):
     # 2. Isolate Footer Keybindings
     tabs_kb = KeyBindings()
     
-    @kb.add("left", eager=True)
-    def _(event):
-        interface.switch_tab(-1)
-
-    @kb.add("right", eager=True)
-    def _(event):
-        interface.switch_tab(1)
+    # NOTE: left/right handlers moved to Application-level in myworld.py
+    # to ensure they work regardless of focus state
 
     tabs_window = Window(
         content=FormattedTextControl(interface.get_tabs_control, key_bindings=tabs_kb),
@@ -108,11 +110,11 @@ def build_taskmgr_layout(interface):
 
     # --- Performance Tab Layout ---
     # Ensure graphs expand to fill space (weight=1)
-    # Make windows focusable to prevent focus trap when switching to Performance tab
-    cpu_window = Window(content=FormattedTextControl(interface.get_cpu, focusable=True), style="class:output-field", height=Dimension(weight=1), width=Dimension(weight=1))
-    ram_window = Window(content=FormattedTextControl(interface.get_ram, focusable=True), style="class:output-field", height=Dimension(weight=1), width=Dimension(weight=1))
-    gpu_window = Window(content=FormattedTextControl(interface.get_gpu, focusable=True), style="class:output-field", height=Dimension(weight=1), width=Dimension(weight=1))
-    net_window = Window(content=FormattedTextControl(interface.get_network, focusable=True), style="class:output-field", height=Dimension(weight=1), width=Dimension(weight=1))
+    # CRITICAL: Set focusable=False to prevent graph windows from swallowing arrow keys
+    cpu_window = Window(content=FormattedTextControl(interface.get_cpu, focusable=False), style="class:output-field", height=Dimension(weight=1), width=Dimension(weight=1))
+    ram_window = Window(content=FormattedTextControl(interface.get_ram, focusable=False), style="class:output-field", height=Dimension(weight=1), width=Dimension(weight=1))
+    gpu_window = Window(content=FormattedTextControl(interface.get_gpu, focusable=False), style="class:output-field", height=Dimension(weight=1), width=Dimension(weight=1))
+    net_window = Window(content=FormattedTextControl(interface.get_network, focusable=False), style="class:output-field", height=Dimension(weight=1), width=Dimension(weight=1))
 
     col_1_graphs = HSplit([
         cpu_window,

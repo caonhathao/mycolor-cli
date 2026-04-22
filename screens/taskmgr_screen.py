@@ -3,7 +3,7 @@ import os
 import shutil
 import socket
 import threading
-from time import time
+from time import time, monotonic
 import json as json_lib
 
 from prompt_toolkit.formatted_text import ANSI
@@ -97,6 +97,8 @@ class TaskManagerInterface:
         while not self._stop_event.is_set():
             try:
                 if self.app.app_state.get("current_screen") == "taskmgr":
+                    with open("pulse.log", "a") as f:
+                        f.write(f"[{monotonic():.3f}] UI PULSE | tab:{self.active_tab} | screen:{self.app.app_state.get('current_screen')}\n")
                     current_time = time()
                     current_tab = self.tabs[self.active_tab]
                     
@@ -173,6 +175,9 @@ class TaskManagerInterface:
                             self.app.invalidate()
                             self._data_changed = False
 
+                with open("pulse.log", "a") as f:
+                    f.write(f"[{monotonic():.3f}] UI PULSE | tab:{self.active_tab} | screen:{self.app.app_state.get('current_screen')}\n")
+
                 await asyncio.sleep(0.1)
         finally:
             self._stop_event.set()
@@ -192,18 +197,30 @@ class TaskManagerInterface:
 
     def get_cpu(self):
         perf_tab = self.tabs[self.TAB_PERFORMANCE]
+        formatted = perf_tab.cpu_monitor.get_cached_formatted()
+        if formatted:
+            return formatted
         return ANSI(perf_tab.cpu_monitor.get_cached_frame_safe())
 
     def get_ram(self):
         perf_tab = self.tabs[self.TAB_PERFORMANCE]
+        formatted = perf_tab.ram_monitor.get_cached_formatted()
+        if formatted:
+            return formatted
         return ANSI(perf_tab.ram_monitor.get_cached_frame_safe())
 
     def get_gpu(self):
         perf_tab = self.tabs[self.TAB_PERFORMANCE]
+        formatted = perf_tab.gpu_monitor.get_cached_formatted()
+        if formatted:
+            return formatted
         return ANSI(perf_tab.gpu_monitor.get_cached_frame_safe())
 
     def get_network(self):
         perf_tab = self.tabs[self.TAB_PERFORMANCE]
+        formatted = perf_tab.net_monitor.get_cached_formatted()
+        if formatted:
+            return formatted
         return ANSI(perf_tab.net_monitor.get_cached_frame_safe())
 
     def get_tabs_control(self):

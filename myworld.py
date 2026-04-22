@@ -136,6 +136,42 @@ async def main_app(mode="default"):
     kb = get_input_key_bindings(application, output_buffer)
     application.key_bindings = kb
 
+    # --- Task Manager Global Key Bindings (Application-level) ---
+    # These override all container-level bindings when in taskmgr screen
+    from prompt_toolkit.key_binding import KeyBindings
+    taskmgr_kb = KeyBindings()
+
+    @taskmgr_kb.add("q", eager=True)
+    def handle_taskmgr_q(event):
+        if app_state.get("current_screen") == "taskmgr":
+            interface = app_state.get("taskmgr_instance")
+            if interface:
+                interface.stop()
+            event.app.exit()
+
+    @taskmgr_kb.add("left", eager=True)
+    def handle_taskmgr_left(event):
+        if app_state.get("current_screen") == "taskmgr":
+            interface = app_state.get("taskmgr_instance")
+            if interface and hasattr(interface, 'switch_tab'):
+                interface.switch_tab(-1)
+
+    @taskmgr_kb.add("right", eager=True)
+    def handle_taskmgr_right(event):
+        if app_state.get("current_screen") == "taskmgr":
+            interface = app_state.get("taskmgr_instance")
+            if interface and hasattr(interface, 'switch_tab'):
+                interface.switch_tab(1)
+
+    # Merge: create a combined KeyBindings with both sets
+    # First add taskmgr bindings with higher priority by adding them AFTER creating merged
+    combined_kb = KeyBindings()
+    for b in kb.bindings:
+        combined_kb._bindings.append(b)
+    for b in taskmgr_kb.bindings:
+        combined_kb._bindings.append(b)
+    application.key_bindings = combined_kb
+
     # State Management
     app_state = {"current_screen": "intro" if mode == "default" else mode}
     setattr(application, "app_state", app_state)
@@ -156,6 +192,11 @@ async def main_app(mode="default"):
     intro_container = get_intro_screen_container(text_area)
     cmd_container = get_cmd_screen_container(text_area, output_buffer)
     taskmgr_container, taskmgr_focus = get_taskmgr_layout(application)
+
+    # Store interface in app_state for global key handler access
+    from layout.taskmgr_layout import get_current_taskmgr_interface
+    interface = get_current_taskmgr_interface()
+    app_state["taskmgr_instance"] = interface
 
     def get_root_container():
         if app_state["current_screen"] == "intro":

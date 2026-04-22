@@ -10,6 +10,7 @@ from rich.panel import Panel
 from rich.text import Text
 
 from functions.theme.theme_logic import get_current_theme_colors
+from prompt_toolkit.formatted_text import ANSI as PT_ANSI
 
 
 def _load_interval():
@@ -34,6 +35,7 @@ class BaseMonitor:
         self.history = [0.0] * 100
         self.last_value = 0.0
         self.cached_frame = ""
+        self._cached_formatted = None
         self.blocks = [" ", "▂", "▃", "▄", "▅", "▆", "▇", "█"]
 
         self.update_interval = _MONITOR_INTERVAL
@@ -45,8 +47,15 @@ class BaseMonitor:
         self._data_lock = threading.Lock()
 
     def get_cached_frame_safe(self):
+        with open("lock.log", "a") as f:
+            f.write(f"[{monotonic():.3f}] REQ:{self.title}\n")
         with self._data_lock:
-            return self.cached_frame
+            with open("lock.log", "a") as f:
+                f.write(f"[{monotonic():.3f}] ACQ:{self.title}\n")
+            result = self.cached_frame
+        with open("lock.log", "a") as f:
+            f.write(f"[{monotonic():.3f}] REL:{self.title}\n")
+        return result
 
     def should_update(self):
         """Check if enough time has passed to perform an update."""
@@ -76,10 +85,24 @@ class BaseMonitor:
     def get_cached_frame(self):
         return self.cached_frame
 
+    def get_cached_formatted(self):
+        with open("lock.log", "a") as f:
+            f.write(f"[{monotonic():.3f}] REQ_FMT:{self.title}\n")
+        with self._data_lock:
+            with open("lock.log", "a") as f:
+                f.write(f"[{monotonic():.3f}] ACQ_FMT:{self.title}\n")
+            if self._cached_formatted is None and self.cached_frame:
+                self._cached_formatted = PT_ANSI(self.cached_frame)
+            result = self._cached_formatted
+        with open("lock.log", "a") as f:
+            f.write(f"[{monotonic():.3f}] REL_FMT:{self.title}\n")
+        return result
+
     def clear_data(self):
         """Clear monitor data to free memory when tab is inactive."""
         self.history = [0.0] * 100
         self.cached_frame = ""
+        self._cached_formatted = None
         self.last_value = 0.0
         self.last_update_time = 0.0
 
