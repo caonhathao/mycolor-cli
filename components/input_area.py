@@ -2,6 +2,7 @@ import io
 import asyncio
 import os
 from functools import partial
+import hashlib
 
 from rich.console import Console, Group
 from rich.text import Text
@@ -29,6 +30,19 @@ from functions.clear import handle_clear_command
 from functions.copy.copy_cmd import handle_copy_command
 from components.completer import DynamicCommandCompleter
 from modules.tracker.history_tracker import get_history_tracker
+
+_ANSI_BUFFER = io.StringIO()
+_ANSI_CONSOLE = Console(file=_ANSI_BUFFER, force_terminal=True, width=80, color_system="truecolor")
+_PLAIN_BUFFER = io.StringIO()
+_PLAIN_CONSOLE = Console(file=_PLAIN_BUFFER, force_terminal=True, width=80, color_system=None)
+
+
+def rich_to_ansi(text):
+    """Convert Rich markup string to ANSI escape codes."""
+    _ANSI_BUFFER.seek(0)
+    _ANSI_BUFFER.truncate(0)
+    _ANSI_CONSOLE.print(text, end="")
+    return _ANSI_BUFFER.getvalue()
 
 
 class RoundedBorder:
@@ -132,34 +146,52 @@ def get_input_text_area(application_ref, output_buffer, on_accept=None):
 
     def log_to_buffer(renderable, save_to_history=True):
         """Renders a Rich object to ANSI string and appends to output buffer."""
-        buffer = io.StringIO()
-        temp_console = Console(file=buffer, force_terminal=True, width=80)
-        temp_console.print(renderable)
-        ansi_output = buffer.getvalue().rstrip()
+        global _ANSI_BUFFER, _ANSI_CONSOLE, _PLAIN_BUFFER, _PLAIN_CONSOLE
+        
+        _ANSI_BUFFER.seek(0)
+        _ANSI_BUFFER.truncate(0)
+        
+        is_rich_renderable = (
+            hasattr(renderable, "__rich_console__") 
+            or hasattr(renderable, "__rich__")
+            or isinstance(renderable, Group)
+        )
+        
+        if is_rich_renderable:
+            _ANSI_CONSOLE.print(renderable)
+            ansi_output = _ANSI_BUFFER.getvalue()
+            
+            if save_to_history:
+                _PLAIN_BUFFER.seek(0)
+                _PLAIN_BUFFER.truncate(0)
+                _PLAIN_CONSOLE.print(renderable)
+                plain_text = _PLAIN_BUFFER.getvalue()
+                get_history_tracker().append_result(plain_text)
+        else:
+            _ANSI_CONSOLE.print(str(renderable))
+            ansi_output = _ANSI_BUFFER.getvalue()
+            
+            if save_to_history:
+                plain_text = str(renderable)
+                get_history_tracker().append_result(plain_text)
 
-        # Shadow History Capture
-        if save_to_history:
-            # Render to plain text for history
-            buffer = io.StringIO()
-            txt_console = Console(
-                file=buffer, 
-                force_terminal=True, 
-                width=80, 
-                color_system=None
-            )
-            txt_console.print(renderable)
-            plain_text = buffer.getvalue()
-            get_history_tracker().append_result(plain_text)
-
-        # Fix Buffer Clipping: Use insert_text to keep history
-        # We need to bypass read_only constraint of the TextArea
         was_read_only = output_buffer.read_only
         output_buffer.read_only = False
         try:
             output_buffer.buffer.cursor_position = len(output_buffer.buffer.text)
             if output_buffer.buffer.text:
                 output_buffer.buffer.insert_text("\n")
-            output_buffer.buffer.insert_text(ansi_output)
+            output_buffer.buffer.insert_text(ansi_output.rstrip("\n"))
+            
+            output_buffer.buffer.cursor_position = len(output_buffer.buffer.text)
+            
+            try:
+                from prompt_toolkit.application import get_app
+                app = get_app()
+                app.layout.focus(output_buffer)
+                app.invalidate()
+            except Exception:
+                pass
         finally:
             output_buffer.read_only = was_read_only
 
@@ -213,6 +245,20 @@ def get_input_text_area(application_ref, output_buffer, on_accept=None):
         clear_notification = get_notification_clearer()
         if clear_notification:
             clear_notification()
+
+        # Check for pending kill confirmation
+        from functions.system.system_cmd import get_pending_kill, confirm_and_execute_kill
+        pending = get_pending_kill()
+        if pending:
+            cmd_lower = command_text.lower().strip()
+            if cmd_lower in ("y", "yes"):
+                confirm_and_execute_kill(log_to_buffer)
+                buff.reset()
+                return True
+            else:
+                log_to_buffer("[bold yellow]Operation aborted by user.[/bold yellow]")
+                buff.reset()
+                return True
 
         # Fetch dynamic colors for semantic highlighting
         primary_hex = functions.theme.theme_logic.get_pt_color_hex(
@@ -288,7 +334,9 @@ def get_input_text_area(application_ref, output_buffer, on_accept=None):
         elif command_text.startswith("/sysinfo"):
             handle_sysinfo_command(log_to_buffer, command_text)
         elif command_text.startswith("/system"):
-            handle_system_command(log_to_buffer, command_text)
+            from screens.cmd_screen import get_notification_trigger
+            notification_trigger = get_notification_trigger()
+            handle_system_command(log_to_buffer, command_text, notification_trigger)
         elif command_text == "/help":
             handle_help_command(log_to_buffer)
         elif command_text.startswith("/copy"):
@@ -374,6 +422,14 @@ def get_input_text_area(application_ref, output_buffer, on_accept=None):
             # Add exactly ONE empty line of space after the Result/Output
             log_to_buffer("", save_to_history=False)
 
+        # --- MANDATORY FIX: Manually append command to history ---
+        if command_text:
+            try:
+                buff.history.append_string(command_text)
+            except Exception:
+                pass
+        # ----------------------------------------------------
+
         # Clear the buffer for the next command
         buff.reset()
         
@@ -401,11 +457,8 @@ def get_input_text_area(application_ref, output_buffer, on_accept=None):
     return text_area
 
 
-def get_input_key_bindings(application_ref):
+def get_input_key_bindings(application_ref, output_buffer=None):
     """Returns key bindings for the main application."""
-    from prompt_toolkit.keys import Keys
-    from prompt_toolkit.filters import HasFocus
-
     kb = KeyBindings()
 
     @kb.add("c-c", eager=True)
@@ -414,16 +467,48 @@ def get_input_key_bindings(application_ref):
         """Pressing Ctrl-C or Ctrl-Q will exit the user interface."""
         event.app.exit()
 
-    @kb.add("backspace")
-    def _(event):
-        """
-        Custom backspace handler to ensure completions are re-triggered on deletion.
-        """
-        # Standard backspace behavior
-        event.current_buffer.delete_before_cursor()
-        # Force re-trigger completion
-        buffer = event.current_buffer
-        if buffer.completer:
-            buffer.start_completion(select_first=False)
+    @kb.add("escape", "q")
+    def alt_q_quit(event):
+        """Alt+Q triggers /quit to exit the application."""
+        event.app.exit()
+
+    @kb.add("c-l", eager=True)
+    def clear_terminal(event):
+        """Ctrl+L triggers /clear command to flush terminal history."""
+        if output_buffer:
+            from functions.clear import handle_clear_command
+            handle_clear_command(output_buffer)
+            event.app.invalidate()
+
+    @kb.add("escape", "c")
+    def alt_c_clear(event):
+        """Alt+C clears current input line."""
+        event.current_buffer.text = ""
+        event.app.invalidate()
+
+    @kb.add("c-v", eager=True)
+    def ctrl_v_paste(event):
+        """Ctrl+V - Paste from clipboard."""
+        try:
+            import pyperclip
+            clipboard_data = pyperclip.paste()
+            if clipboard_data:
+                event.current_buffer.insert_text(clipboard_data)
+        except Exception:
+            pass
+
+    @kb.add("s-up", eager=True)
+    def shift_up_history(event):
+        """Shift+Up - cycle backward through command history."""
+        event.current_buffer.history_backward()
+        event.current_buffer.cursor_position = len(event.current_buffer.text)
+        event.app.invalidate()
+
+    @kb.add("s-down", eager=True)
+    def shift_down_history(event):
+        """Shift+Down - cycle forward through command history."""
+        event.current_buffer.history_forward()
+        event.current_buffer.cursor_position = len(event.current_buffer.text)
+        event.app.invalidate()
 
     return kb

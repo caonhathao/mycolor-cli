@@ -23,6 +23,7 @@ class DynamicCommandCompleter(Completer):
             "/system": [
                 "--taskmgr",
                 "--end-task",
+                "--kill",
                 "--run-new",
                 "--d",
                 "--e",

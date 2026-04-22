@@ -11,7 +11,7 @@ def handle_copy_command(command_text, log_func, output_buffer, notification_trig
     if len(parts) == 1 or "--help" in parts or "-h" in parts:
         flags = {
             "--last <1-3>": "Copy last N command-result pairs to clipboard (default: 1)",
-            "--export <path>[optional]": "Export history to a .txt file. (Default: Documents/mycolor)",
+            "--export <path>[optional]": "Export all history to a file",
             "-h, --help": "Show this guide",
         }
 

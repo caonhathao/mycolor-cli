@@ -26,12 +26,24 @@ def get_processes():
     return sorted(procs, key=lambda p: p['cpu_percent'], reverse=True)
 
 def terminate_process(pid):
-    """Terminates a process by PID."""
+    """Terminates a process by PID using taskkill /F."""
     try:
-        p = psutil.Process(pid)
-        p.terminate()
-        return True, f"Process {pid} terminated."
-    except psutil.Error as e:
+        result = subprocess.run(
+            ["taskkill", "/F", "/PID", str(pid)],
+            capture_output=True,
+            text=True,
+            shell=False
+        )
+        if result.returncode == 0:
+            return True, f"Process {pid} terminated successfully."
+        error_output = result.stderr.lower()
+        if "not found" in error_output or "invalid" in error_output:
+            return False, f"Process ID {pid} not found."
+        elif "access denied" in error_output:
+            return False, f"Insufficient privileges to end process {pid}."
+        else:
+            return False, result.stderr.strip() if result.stderr else "Unknown error occurred."
+    except (subprocess.SubprocessError, OSError) as e:
         return False, str(e)
 
 def run_new_task(cmd):
@@ -101,15 +113,69 @@ def set_startup_state(name, enable):
         return False, str(e)
 
 def launch_taskmgr_window():
-    """Launches the Task Manager in a new terminal window."""
+    """Launches the Task Manager in a new terminal window using standalone script."""
     try:
         python_exe = sys.executable
-        script_path = os.path.abspath("myworld.py")
+        script_path = os.path.abspath("taskmgr_standalone.py")
         work_dir = os.getcwd()
         
-        command = f'start "MYCOLOR - Task Manager" "{python_exe}" "{script_path}" --mode taskmgr'
+        command = f'start "MYCOLOR - Task Manager" "{python_exe}" "{script_path}"'
         
         subprocess.Popen(command, shell=True, cwd=work_dir)
         return True, "Task Manager launched in a new window."
     except (subprocess.SubprocessError, FileNotFoundError, OSError) as e:
         return False, str(e)
+
+
+def find_processes_by_name(name):
+    """Finds all processes matching name (case-insensitive). Returns list of dicts."""
+    matches = []
+    name_lower = name.lower()
+    for p in psutil.process_iter(['pid', 'name', 'status', 'memory_info']):
+        try:
+            info = p.info
+            proc_name = info.get('name', '')
+            if name_lower in proc_name.lower():
+                mem_info = info.get('memory_info', None)
+                mem_mb = 0
+                if mem_info:
+                    try:
+                        mem_mb = mem_info.rss / (1024 * 1024)
+                    except Exception:
+                        pass
+                matches.append({
+                    'pid': info.get('pid'),
+                    'name': proc_name,
+                    'status': info.get('status', 'running'),
+                    'memory_mb': round(mem_mb, 1)
+                })
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            pass
+    return matches
+
+
+def kill_processes_by_name(name):
+    """Kills all processes matching name. Returns (success_count, failure_count, total)."""
+    matches = find_processes_by_name(name)
+    if not matches:
+        return 0, 0, 0
+    
+    killed = 0
+    failed = 0
+    for proc in matches:
+        pid = proc['pid']
+        try:
+            result = subprocess.run(
+                ["taskkill", "/F", "/PID", str(pid)],
+                capture_output=True,
+                text=True,
+                shell=False
+            )
+            if result.returncode == 0:
+                killed += 1
+            else:
+                failed += 1
+        except Exception:
+            failed += 1
+    
+    return killed, failed, len(matches)

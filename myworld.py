@@ -7,6 +7,7 @@ import subprocess
 import sys
 import time
 from datetime import datetime
+from typing import TYPE_CHECKING, Any, Dict, Optional, Union, cast
 
 from prompt_toolkit.application import Application
 from prompt_toolkit.layout.containers import DynamicContainer
@@ -18,9 +19,11 @@ from rich.console import Console
 
 from components.input_area import get_input_key_bindings, get_input_text_area
 from functions.theme.theme_logic import ensure_config_exists, get_app_style, load_config
-from layout.taskmgr_layout import get_taskmgr_layout
 from screens.cmd_screen import get_cmd_screen_container
 from screens.intro_screen import get_intro_screen_container
+
+if TYPE_CHECKING:
+    pass
 
 ensure_config_exists()
 
@@ -132,9 +135,14 @@ async def main_app(mode="default"):
         style="class:output-field", read_only=True, scrollbar=True, focus_on_click=True
     )
 
+    # Update key bindings with output_buffer after it's created
+    kb = get_input_key_bindings(application, output_buffer)
+    application.key_bindings = kb
+
     # State Management
-    app_state = {"current_screen": "intro" if mode == "default" else mode}
+    app_state: Dict[str, Any] = {"current_screen": "intro" if mode == "default" else mode}
     setattr(application, "app_state", app_state)
+    app_state["app_instance"] = application
 
     def on_input_accept(buff):
         """Callback when input is accepted."""
@@ -151,13 +159,10 @@ async def main_app(mode="default"):
     # Initialize Screens
     intro_container = get_intro_screen_container(text_area)
     cmd_container = get_cmd_screen_container(text_area, output_buffer)
-    taskmgr_container, taskmgr_focus = get_taskmgr_layout(application)
 
     def get_root_container():
         if app_state["current_screen"] == "intro":
             return intro_container
-        elif app_state["current_screen"] == "taskmgr":
-            return taskmgr_container
         else:
             return cmd_container
 
@@ -167,8 +172,6 @@ async def main_app(mode="default"):
     root_container = DynamicContainer(get_root_container)
 
     initial_focus = text_area
-    if mode == "taskmgr":
-        initial_focus = taskmgr_focus
 
     # Force verify initial_focus is a Window
     application.layout = Layout(root_container, focused_element=initial_focus)
