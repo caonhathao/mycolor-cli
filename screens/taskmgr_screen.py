@@ -94,6 +94,7 @@ class TaskManagerInterface:
         self.current_mode = mode
 
     def _background_worker(self):
+        import traceback
         while not self._stop_event.is_set():
             try:
                 if self.app.app_state.get("current_screen") == "taskmgr":
@@ -111,7 +112,12 @@ class TaskManagerInterface:
                                 with self._data_lock:
                                     self._data_changed = True
             except Exception:
-                pass
+                try:
+                    with open("error_runtime.log", "a") as f:
+                        f.write(f"[{monotonic():.3f}] _background_worker ERROR:\n")
+                        f.write(traceback.format_exc())
+                except Exception:
+                    pass
 
             self._stop_event.wait(REFRESH_INTERVAL)
 
@@ -161,6 +167,7 @@ class TaskManagerInterface:
                     self._apply_blueprint(new_mode)
                     self.show_sidebar = new_mode == "full"
                     self.app.renderer.erase()
+                    self.app.invalidate()
 
                 current_term_size = shutil.get_terminal_size()
                 if current_term_size != self.last_term_size or self.first_render:
@@ -170,10 +177,9 @@ class TaskManagerInterface:
                     self.app.invalidate()
 
                 if self.app.app_state.get("current_screen") == "taskmgr":
+                    self.app.invalidate()
                     with self._data_lock:
-                        if self._data_changed:
-                            self.app.invalidate()
-                            self._data_changed = False
+                        self._data_changed = False
 
                 with open("pulse.log", "a") as f:
                     f.write(f"[{monotonic():.3f}] UI PULSE | tab:{self.active_tab} | screen:{self.app.app_state.get('current_screen')}\n")
@@ -197,6 +203,8 @@ class TaskManagerInterface:
 
     def get_cpu(self):
         perf_tab = self.tabs[self.TAB_PERFORMANCE]
+        with open("ui_data_access.log", "a") as f:
+            f.write(f"[{monotonic():.3f}] get_cpu() | monitor_id={id(perf_tab.cpu_monitor)} | last={perf_tab.cpu_monitor.last_value} | hist_len={len(perf_tab.cpu_monitor.history)}\n")
         formatted = perf_tab.cpu_monitor.get_cached_formatted()
         if formatted:
             return formatted
@@ -204,6 +212,8 @@ class TaskManagerInterface:
 
     def get_ram(self):
         perf_tab = self.tabs[self.TAB_PERFORMANCE]
+        with open("ui_data_access.log", "a") as f:
+            f.write(f"[{monotonic():.3f}] get_ram() | monitor_id={id(perf_tab.ram_monitor)} | last={perf_tab.ram_monitor.last_value} | hist_len={len(perf_tab.ram_monitor.history)}\n")
         formatted = perf_tab.ram_monitor.get_cached_formatted()
         if formatted:
             return formatted
@@ -211,6 +221,8 @@ class TaskManagerInterface:
 
     def get_gpu(self):
         perf_tab = self.tabs[self.TAB_PERFORMANCE]
+        with open("ui_data_access.log", "a") as f:
+            f.write(f"[{monotonic():.3f}] get_gpu() | monitor_id={id(perf_tab.gpu_monitor)} | last={perf_tab.gpu_monitor.last_value} | hist_len={len(perf_tab.gpu_monitor.history)}\n")
         formatted = perf_tab.gpu_monitor.get_cached_formatted()
         if formatted:
             return formatted
@@ -218,6 +230,8 @@ class TaskManagerInterface:
 
     def get_network(self):
         perf_tab = self.tabs[self.TAB_PERFORMANCE]
+        with open("ui_data_access.log", "a") as f:
+            f.write(f"[{monotonic():.3f}] get_net() | monitor_id={id(perf_tab.net_monitor)} | last={perf_tab.net_monitor.last_value} | hist_len={len(perf_tab.net_monitor.history)}\n")
         formatted = perf_tab.net_monitor.get_cached_formatted()
         if formatted:
             return formatted

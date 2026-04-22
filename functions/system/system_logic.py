@@ -113,13 +113,13 @@ def set_startup_state(name, enable):
         return False, str(e)
 
 def launch_taskmgr_window():
-    """Launches the Task Manager in a new terminal window."""
+    """Launches the Task Manager in a new terminal window using standalone script."""
     try:
         python_exe = sys.executable
-        script_path = os.path.abspath("myworld.py")
+        script_path = os.path.abspath("taskmgr_standalone.py")
         work_dir = os.getcwd()
         
-        command = f'start "MYCOLOR - Task Manager" "{python_exe}" "{script_path}" --mode taskmgr'
+        command = f'start "MYCOLOR - Task Manager" "{python_exe}" "{script_path}"'
         
         subprocess.Popen(command, shell=True, cwd=work_dir)
         return True, "Task Manager launched in a new window."

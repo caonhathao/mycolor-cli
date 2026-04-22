@@ -7,6 +7,7 @@ import subprocess
 import sys
 import time
 from datetime import datetime
+from typing import TYPE_CHECKING, Any, Dict, Optional, Union, cast
 
 from prompt_toolkit.application import Application
 from prompt_toolkit.layout.containers import DynamicContainer
@@ -18,9 +19,11 @@ from rich.console import Console
 
 from components.input_area import get_input_key_bindings, get_input_text_area
 from functions.theme.theme_logic import ensure_config_exists, get_app_style, load_config
-from layout.taskmgr_layout import get_taskmgr_layout
 from screens.cmd_screen import get_cmd_screen_container
 from screens.intro_screen import get_intro_screen_container
+
+if TYPE_CHECKING:
+    pass
 
 ensure_config_exists()
 
@@ -136,45 +139,10 @@ async def main_app(mode="default"):
     kb = get_input_key_bindings(application, output_buffer)
     application.key_bindings = kb
 
-    # --- Task Manager Global Key Bindings (Application-level) ---
-    # These override all container-level bindings when in taskmgr screen
-    from prompt_toolkit.key_binding import KeyBindings
-    taskmgr_kb = KeyBindings()
-
-    @taskmgr_kb.add("q", eager=True)
-    def handle_taskmgr_q(event):
-        if app_state.get("current_screen") == "taskmgr":
-            interface = app_state.get("taskmgr_instance")
-            if interface:
-                interface.stop()
-            event.app.exit()
-
-    @taskmgr_kb.add("left", eager=True)
-    def handle_taskmgr_left(event):
-        if app_state.get("current_screen") == "taskmgr":
-            interface = app_state.get("taskmgr_instance")
-            if interface and hasattr(interface, 'switch_tab'):
-                interface.switch_tab(-1)
-
-    @taskmgr_kb.add("right", eager=True)
-    def handle_taskmgr_right(event):
-        if app_state.get("current_screen") == "taskmgr":
-            interface = app_state.get("taskmgr_instance")
-            if interface and hasattr(interface, 'switch_tab'):
-                interface.switch_tab(1)
-
-    # Merge: create a combined KeyBindings with both sets
-    # First add taskmgr bindings with higher priority by adding them AFTER creating merged
-    combined_kb = KeyBindings()
-    for b in kb.bindings:
-        combined_kb._bindings.append(b)
-    for b in taskmgr_kb.bindings:
-        combined_kb._bindings.append(b)
-    application.key_bindings = combined_kb
-
     # State Management
-    app_state = {"current_screen": "intro" if mode == "default" else mode}
+    app_state: Dict[str, Any] = {"current_screen": "intro" if mode == "default" else mode}
     setattr(application, "app_state", app_state)
+    app_state["app_instance"] = application
 
     def on_input_accept(buff):
         """Callback when input is accepted."""
@@ -191,18 +159,10 @@ async def main_app(mode="default"):
     # Initialize Screens
     intro_container = get_intro_screen_container(text_area)
     cmd_container = get_cmd_screen_container(text_area, output_buffer)
-    taskmgr_container, taskmgr_focus = get_taskmgr_layout(application)
-
-    # Store interface in app_state for global key handler access
-    from layout.taskmgr_layout import get_current_taskmgr_interface
-    interface = get_current_taskmgr_interface()
-    app_state["taskmgr_instance"] = interface
 
     def get_root_container():
         if app_state["current_screen"] == "intro":
             return intro_container
-        elif app_state["current_screen"] == "taskmgr":
-            return taskmgr_container
         else:
             return cmd_container
 
@@ -212,8 +172,6 @@ async def main_app(mode="default"):
     root_container = DynamicContainer(get_root_container)
 
     initial_focus = text_area
-    if mode == "taskmgr":
-        initial_focus = taskmgr_focus
 
     # Force verify initial_focus is a Window
     application.layout = Layout(root_container, focused_element=initial_focus)

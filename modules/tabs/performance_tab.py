@@ -3,12 +3,36 @@ import os
 import shutil
 import threading
 import time
+import traceback
 from time import monotonic
 from .base_tab import BaseTab
 from modules.monitors.cpu_monitor import CPUMonitor
 from modules.monitors.gpu_monitor import GPUMonitor
 from modules.monitors.net_monitor import NetMonitor
 from modules.monitors.ram_monitor import RAMMonitor
+
+REFRESH_INTERVAL = 0.5
+
+_WORKER_LOG_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "worker_lifecycle.log")
+_RENDER_LOG_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "render_confirm.log")
+
+
+def _log_lifecycle(thread_name, message):
+    try:
+        with open(_WORKER_LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(f"[{time.time():.3f}] TID={threading.get_ident()} {thread_name}: {message}\n")
+            f.flush()
+    except Exception:
+        pass
+
+
+def _log_render(message):
+    try:
+        with open(_RENDER_LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(f"[{time.time():.3f}] {message}\n")
+            f.flush()
+    except Exception:
+        pass
 
 
 def _log_debug(module_name, message):
@@ -28,96 +52,166 @@ class PerformanceTab(BaseTab):
         self.gpu_monitor = GPUMonitor()
         self.net_monitor = NetMonitor()
         self._data_changed = True
-        
+
         self._worker_threads = []
-        self._stop_event = threading.Event()
+        self._stop_event_cpu_ram = threading.Event()
+        self._stop_event_gpu = threading.Event()
+        self._stop_event_net = threading.Event()
         self._last_invalidate_time = 0.0
         self._invalidate_lock = threading.Lock()
+        self._monitors = [self.cpu_monitor, self.ram_monitor, self.gpu_monitor, self.net_monitor]
+        self._has_update = False
 
     def _try_invalidate(self):
+        try:
+            screen = self.parent.app.app_state.get("current_screen", "unknown")
+            tab = self.parent.active_tab
+        except Exception:
+            return
+        
         current_time = monotonic()
         if current_time - self._last_invalidate_time >= 0.1:
             with self._invalidate_lock:
                 if current_time - self._last_invalidate_time >= 0.1:
                     self._last_invalidate_time = current_time
-                    if self.parent.app.app_state.get("current_screen") == "taskmgr":
-                        if self.parent.active_tab == self.parent.TAB_PERFORMANCE:
-                            self.parent.app.invalidate()
+                    app_id = id(self.parent.app)
+                    _log_render(f"RENDER_CHECK: _has_update={self._has_update}, app_id={app_id}, screen={screen}, tab={tab}")
+                    if screen == "taskmgr" and tab == self.parent.TAB_PERFORMANCE:
+                        self._has_update = True
+                        _log_debug("PERF", f"INVALIDATE_SIGNAL: tab={tab}, screen={screen}, app_id={app_id}")
+                        try:
+                            app = self.parent.app.app_state.get("app_instance")
+                            if app:
+                                app_id_from_state = id(app)
+                                _log_render(f"INVALIDATE: signaling App {app_id_from_state} (matches parent.app={app_id_from_state == app_id})")
+                                app.invalidate()
+                            else:
+                                _log_render("INVALIDATE_FAIL: app_instance is None")
+                        except Exception as e:
+                            _log_render(f"INVALIDATE_ERROR: {e}")
+                    else:
+                        _log_debug("PERF", f"INVALIDATE_SKIP: tab={tab}, screen={screen}")
+        
+        with self._invalidate_lock:
+            if screen == "taskmgr" and tab == self.parent.TAB_PERFORMANCE:
+                try:
+                    app = self.parent.app.app_state.get("app_instance")
+                    if app:
+                        app.invalidate()
+                except Exception:
+                    pass
 
     def start_workers(self, interval):
         if self._worker_threads:
             return
-        
+
+        _log_debug("PERF", "start_workers CALLED")
+        _log_debug("PERF", f"PRE-START events: cpu={self._stop_event_cpu_ram.is_set()}, gpu={self._stop_event_gpu.is_set()}, net={self._stop_event_net.is_set()}")
+
+        self._stop_event_cpu_ram.clear()
+        self._stop_event_gpu.clear()
+        self._stop_event_net.clear()
+
+        _log_debug("PERF", "POST-CLEAR events: all FALSE")
+
         def worker_cpu_ram():
-            while not self._stop_event.is_set():
+            _log_lifecycle("CPU_RAM", f"THREAD STARTED | cpu_id={id(self.cpu_monitor)} ram_id={id(self.ram_monitor)}")
+            while not self._stop_event_cpu_ram.is_set():
+                _log_lifecycle("CPU_RAM", f"PULSE: event_set={self._stop_event_cpu_ram.is_set()}")
                 try:
-                    with open("worker.log", "a") as f:
-                        f.write(f"[{monotonic():.3f}] WORKER START:cpu_ram\n")
                     width, height = self._calculate_graph_dimensions()
                     if self.cpu_monitor.update():
+                        cpu_val = self.cpu_monitor.last_value
+                        _log_lifecycle("CPU_RAM", f"FETCHED: CPU={cpu_val} | hist_len={len(self.cpu_monitor.history)}")
                         with self.cpu_monitor._data_lock:
                             self.cpu_monitor.render(width, height)
                     if self.ram_monitor.update():
+                        ram_val = self.ram_monitor.last_value
+                        _log_lifecycle("CPU_RAM", f"FETCHED: RAM={ram_val} | hist_len={len(self.ram_monitor.history)}")
                         with self.ram_monitor._data_lock:
                             self.ram_monitor.render(width, height)
                     self._try_invalidate()
-                    with open("worker.log", "a") as f:
-                        f.write(f"[{monotonic():.3f}] WORKER END:cpu_ram\n")
                 except Exception:
-                    with open("worker.log", "a") as f:
-                        f.write(f"[{monotonic():.3f}] WORKER ERROR:cpu_ram\n")
-                self._stop_event.wait(interval)
-        
+                    try:
+                        with open("error_runtime.log", "a") as f:
+                            f.write(f"[{monotonic():.3f}] worker_cpu_ram ERROR:\n")
+                            f.write(traceback.format_exc())
+                    except Exception:
+                        pass
+                self._stop_event_cpu_ram.wait(interval)
+            _log_lifecycle("CPU_RAM", "THREAD EXITED (loop ended)")
+
         def worker_gpu():
-            while not self._stop_event.is_set():
+            _log_lifecycle("GPU", "THREAD STARTED")
+            while not self._stop_event_gpu.is_set():
+                _log_lifecycle("GPU", f"PULSE: event_set={self._stop_event_gpu.is_set()}")
                 try:
-                    with open("worker.log", "a") as f:
-                        f.write(f"[{monotonic():.3f}] WORKER START:gpu\n")
                     width, height = self._calculate_graph_dimensions()
                     if self.gpu_monitor.update():
                         with self.gpu_monitor._data_lock:
                             self.gpu_monitor.render(width, height)
                     self._try_invalidate()
-                    with open("worker.log", "a") as f:
-                        f.write(f"[{monotonic():.3f}] WORKER END:gpu\n")
                 except Exception:
-                    with open("worker.log", "a") as f:
-                        f.write(f"[{monotonic():.3f}] WORKER ERROR:gpu\n")
-                self._stop_event.wait(interval * 2)
-        
+                    try:
+                        with open("error_runtime.log", "a") as f:
+                            f.write(f"[{monotonic():.3f}] worker_gpu ERROR:\n")
+                            f.write(traceback.format_exc())
+                    except Exception:
+                        pass
+                self._stop_event_gpu.wait(interval * 2)
+            _log_lifecycle("GPU", "THREAD EXITED (loop ended)")
+
         def worker_net():
-            while not self._stop_event.is_set():
+            _log_lifecycle("NET", "THREAD STARTED")
+            while not self._stop_event_net.is_set():
+                _log_lifecycle("NET", f"PULSE: event_set={self._stop_event_net.is_set()}")
                 try:
-                    with open("worker.log", "a") as f:
-                        f.write(f"[{monotonic():.3f}] WORKER START:net\n")
                     width, height = self._calculate_graph_dimensions()
                     if self.net_monitor.update():
                         with self.net_monitor._data_lock:
                             self.net_monitor.render(width, height)
                     self._try_invalidate()
-                    with open("worker.log", "a") as f:
-                        f.write(f"[{monotonic():.3f}] WORKER END:net\n")
                 except Exception:
-                    with open("worker.log", "a") as f:
-                        f.write(f"[{monotonic():.3f}] WORKER ERROR:net\n")
-                self._stop_event.wait(interval)
-        
-        t1 = threading.Thread(target=worker_cpu_ram, daemon=True)
-        t2 = threading.Thread(target=worker_gpu, daemon=True)
-        t3 = threading.Thread(target=worker_net, daemon=True)
-        
+                    try:
+                        with open("error_runtime.log", "a") as f:
+                            f.write(f"[{monotonic():.3f}] worker_net ERROR:\n")
+                            f.write(traceback.format_exc())
+                    except Exception:
+                        pass
+                self._stop_event_net.wait(interval)
+            _log_lifecycle("NET", "THREAD EXITED (loop ended)")
+
+        t1 = threading.Thread(target=worker_cpu_ram, daemon=True, name="CPU_RAM")
+        t2 = threading.Thread(target=worker_gpu, daemon=True, name="GPU")
+        t3 = threading.Thread(target=worker_net, daemon=True, name="NET")
+
         self._worker_threads = [t1, t2, t3]
         for t in self._worker_threads:
             t.start()
+
         _log_debug("PERF", "workers_started")
 
     def stop_workers(self):
-        self._stop_event.set()
+        _log_debug("PERF", "STOP_REQUESTED")
+        self._stop_event_cpu_ram.set()
+        self._stop_event_gpu.set()
+        self._stop_event_net.set()
+        for t in self._worker_threads:
+            t.join(timeout=1.0)
         self._worker_threads = []
+        self._stop_event_cpu_ram.clear()
+        self._stop_event_gpu.clear()
+        self._stop_event_net.clear()
         _log_debug("PERF", "workers_stopped")
 
     def update(self, current_time: float) -> bool:
+        if self._has_update:
+            self._has_update = False
+            return True
         return False
+
+    def mark_dirty(self):
+        self._has_update = True
 
     def _calculate_graph_dimensions(self):
         term_size = shutil.get_terminal_size()
@@ -139,10 +233,12 @@ class PerformanceTab(BaseTab):
         for m in [self.cpu_monitor, self.ram_monitor, self.gpu_monitor, self.net_monitor]:
             try:
                 with m._data_lock:
-                    _log_debug("PERF", f"history_{m.title}: len={len(m.history)}, last={m.last_value}")
+                    hist_len = len(m.history)
+                    last_val = m.last_value
+                    _log_debug("PERF", f"DATA: {m.title} history_len={hist_len}, last={last_val}")
             except Exception:
                 _log_debug("PERF", f"lock_failed_{m.title}")
-        
+
         for m in [self.cpu_monitor, self.ram_monitor, self.gpu_monitor, self.net_monitor]:
             try:
                 with m._data_lock:
@@ -155,10 +251,10 @@ class PerformanceTab(BaseTab):
     def render(self):
         _log_debug("PERF", "render_start")
         width, height = self._calculate_graph_dimensions()
-        
+
         if not self._has_data():
             _log_debug("PERF", "render_skeleton")
-            skeleton = f"\x1b[90m{'═' * (width - 4)}\x1b[0m\n" * (height - 2)
+            skeleton = f"\x1b[90m{'=' * (width - 4)}\x1b[0m\n" * (height - 2)
             skeleton += f"\x1b[90m[\x1b[0m Collecting metrics... \x1b[90m]\x1b[0m"
             return {
                 "cpu": skeleton,
@@ -166,7 +262,7 @@ class PerformanceTab(BaseTab):
                 "gpu": skeleton,
                 "net": skeleton,
             }
-        
+
         def safe_get(monitor):
             frame = ""
             if hasattr(monitor, 'get_cached_frame_safe'):
@@ -175,7 +271,7 @@ class PerformanceTab(BaseTab):
                 frame = monitor.get_cached_frame()
             _log_debug("PERF", f"frame_len_{monitor.title}: {len(frame)}")
             return frame
-        
+
         result = {
             "cpu": safe_get(self.cpu_monitor),
             "ram": safe_get(self.ram_monitor),
@@ -186,11 +282,13 @@ class PerformanceTab(BaseTab):
         return result
 
     def on_activate(self):
-        pass
+        _log_debug("PERF", f"on_activate CALLED: existing_threads={len(self._worker_threads)}")
+        self._has_update = True
+        if not self._worker_threads:
+            self.start_workers(REFRESH_INTERVAL)
+        else:
+            _log_debug("PERF", "SKIP_start_workers: threads already running")
 
     def on_deactivate(self):
+        _log_debug("PERF", "on_deactivate CALLED")
         self.stop_workers()
-        self.cpu_monitor.clear_data()
-        self.ram_monitor.clear_data()
-        self.gpu_monitor.clear_data()
-        self.net_monitor.clear_data()
