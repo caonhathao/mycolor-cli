@@ -3,18 +3,34 @@ import os
 import shutil
 import socket
 import threading
+from datetime import datetime
 from time import time, monotonic
 import json as json_lib
 
 from prompt_toolkit.formatted_text import ANSI
 
-from functions.theme.theme_logic import get_current_theme_colors, _get_config_path
+from functions.theme.theme_logic import _get_config_path
+from modules.constants import get_theme_primary, get_theme_color, get_colors_dict, THEME_COLORS
 from modules.panels.detail_panel import DetailPanel
 from modules.tabs import ProcessesTab, PerformanceTab, StartupTab
 
 
+def _get_logs_dir():
+    return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
+
+def _write_log(filename, message):
+    try:
+        logs_dir = _get_logs_dir()
+        os.makedirs(logs_dir, exist_ok=True)
+        with open(os.path.join(logs_dir, filename), "a") as f:
+            f.write(message)
+    except Exception:
+        pass
+
+
 def _load_taskmgr_config():
     try:
+        from functions.theme.theme_logic import _get_config_path
         config_path = _get_config_path()
         if os.path.exists(config_path):
             with open(config_path, "r", encoding="utf-8") as f:
@@ -45,6 +61,7 @@ class TaskManagerInterface:
         self._data_changed = True
         self._stop_event = threading.Event()
         self._data_lock = threading.Lock()
+        self._first_pulse = True
 
         self.blueprints = {
             "mini": {
@@ -95,10 +112,18 @@ class TaskManagerInterface:
 
     def _background_worker(self):
         import traceback
+        from time import monotonic
+        logs_dir = _get_logs_dir()
+        os.makedirs(logs_dir, exist_ok=True)
+        
         while not self._stop_event.is_set():
             try:
                 if self.app.app_state.get("current_screen") == "taskmgr":
-                    with open("pulse.log", "a") as f:
+                    mode = "w" if self._first_pulse else "a"
+                    with open(os.path.join(logs_dir, "pulse.log"), mode) as f:
+                        if self._first_pulse:
+                            f.write(f"=== SESSION STARTED: {datetime.now()} | PID: {os.getpid()} ===\n")
+                            self._first_pulse = False
                         f.write(f"[{monotonic():.3f}] UI PULSE | tab:{self.active_tab} | screen:{self.app.app_state.get('current_screen')}\n")
                     current_time = time()
                     current_tab = self.tabs[self.active_tab]
@@ -113,7 +138,7 @@ class TaskManagerInterface:
                                     self._data_changed = True
             except Exception:
                 try:
-                    with open("error_runtime.log", "a") as f:
+                    with open(os.path.join(logs_dir, "error_runtime.log"), "a") as f:
                         f.write(f"[{monotonic():.3f}] _background_worker ERROR:\n")
                         f.write(traceback.format_exc())
                 except Exception:
@@ -181,17 +206,15 @@ class TaskManagerInterface:
                     with self._data_lock:
                         self._data_changed = False
 
-                with open("pulse.log", "a") as f:
-                    f.write(f"[{monotonic():.3f}] UI PULSE | tab:{self.active_tab} | screen:{self.app.app_state.get('current_screen')}\n")
+                _write_log("pulse.log", f"[{monotonic():.3f}] UI PULSE | tab:{self.active_tab} | screen:{self.app.app_state.get('current_screen')}\n")
 
                 await asyncio.sleep(0.1)
         finally:
             self._stop_event.set()
 
     def get_header(self):
-        colors = get_current_theme_colors()
-        primary_hex = colors["primary"]
-        header_text = colors.get("header_text", "black")
+        primary_hex = get_theme_primary()
+        header_text = get_theme_color("header_text", THEME_COLORS["header_text"])
         hostname = socket.gethostname()
         return [(f"bg:{primary_hex} fg:{header_text} bold", f" SYSTEM MONITOR - {hostname} ")]
 
@@ -203,8 +226,7 @@ class TaskManagerInterface:
 
     def get_cpu(self):
         perf_tab = self.tabs[self.TAB_PERFORMANCE]
-        with open("ui_data_access.log", "a") as f:
-            f.write(f"[{monotonic():.3f}] get_cpu() | monitor_id={id(perf_tab.cpu_monitor)} | last={perf_tab.cpu_monitor.last_value} | hist_len={len(perf_tab.cpu_monitor.history)}\n")
+        _write_log("ui_data_access.log", f"[{monotonic():.3f}] get_cpu() | monitor_id={id(perf_tab.cpu_monitor)} | last={perf_tab.cpu_monitor.last_value} | hist_len={len(perf_tab.cpu_monitor.history)}\n")
         formatted = perf_tab.cpu_monitor.get_cached_formatted()
         if formatted:
             return formatted
@@ -212,8 +234,7 @@ class TaskManagerInterface:
 
     def get_ram(self):
         perf_tab = self.tabs[self.TAB_PERFORMANCE]
-        with open("ui_data_access.log", "a") as f:
-            f.write(f"[{monotonic():.3f}] get_ram() | monitor_id={id(perf_tab.ram_monitor)} | last={perf_tab.ram_monitor.last_value} | hist_len={len(perf_tab.ram_monitor.history)}\n")
+        _write_log("ui_data_access.log", f"[{monotonic():.3f}] get_ram() | monitor_id={id(perf_tab.ram_monitor)} | last={perf_tab.ram_monitor.last_value} | hist_len={len(perf_tab.ram_monitor.history)}\n")
         formatted = perf_tab.ram_monitor.get_cached_formatted()
         if formatted:
             return formatted
@@ -221,8 +242,7 @@ class TaskManagerInterface:
 
     def get_gpu(self):
         perf_tab = self.tabs[self.TAB_PERFORMANCE]
-        with open("ui_data_access.log", "a") as f:
-            f.write(f"[{monotonic():.3f}] get_gpu() | monitor_id={id(perf_tab.gpu_monitor)} | last={perf_tab.gpu_monitor.last_value} | hist_len={len(perf_tab.gpu_monitor.history)}\n")
+        _write_log("ui_data_access.log", f"[{monotonic():.3f}] get_gpu() | monitor_id={id(perf_tab.gpu_monitor)} | last={perf_tab.gpu_monitor.last_value} | hist_len={len(perf_tab.gpu_monitor.history)}\n")
         formatted = perf_tab.gpu_monitor.get_cached_formatted()
         if formatted:
             return formatted
@@ -230,19 +250,18 @@ class TaskManagerInterface:
 
     def get_network(self):
         perf_tab = self.tabs[self.TAB_PERFORMANCE]
-        with open("ui_data_access.log", "a") as f:
-            f.write(f"[{monotonic():.3f}] get_net() | monitor_id={id(perf_tab.net_monitor)} | last={perf_tab.net_monitor.last_value} | hist_len={len(perf_tab.net_monitor.history)}\n")
+        _write_log("ui_data_access.log", f"[{monotonic():.3f}] get_net() | monitor_id={id(perf_tab.net_monitor)} | last={perf_tab.net_monitor.last_value} | hist_len={len(perf_tab.net_monitor.history)}\n")
         formatted = perf_tab.net_monitor.get_cached_formatted()
         if formatted:
             return formatted
         return ANSI(perf_tab.net_monitor.get_cached_frame_safe())
 
     def get_tabs_control(self):
-        colors = get_current_theme_colors()
-        primary_hex = colors["primary"]
-        tab_accent = colors.get("tab_accent", colors.get("active_tab", "#FFFF00"))
-        inactive_tab_color = colors.get("inactive_tab", "#888888")
-        header_text = colors.get("header_text", "white")
+        colors = get_colors_dict()
+        primary_hex = get_theme_primary()
+        tab_accent = get_theme_color("tab_accent", THEME_COLORS.get("accent", "#FFFF00"))
+        inactive_tab_color = get_theme_color("inactive_tab", "#888888")
+        header_text = get_theme_color("header_text", THEME_COLORS["header_text"])
         tab_names = ["Processes", "Performance", "Startup"]
         text = []
         for i, tab in enumerate(tab_names):

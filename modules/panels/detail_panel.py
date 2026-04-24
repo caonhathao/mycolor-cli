@@ -10,6 +10,7 @@ from rich.console import Console
 from rich.panel import Panel
 
 from functions.theme.theme_logic import get_current_theme_colors
+from modules.constants import get_theme_primary
 
 
 class DetailPanel:

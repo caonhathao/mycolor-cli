@@ -1,4 +1,5 @@
 from functions.theme.theme_logic import get_current_theme_colors
+from modules.constants import SHORTCUTS, SHORTCUT_CLEAR, SHORTCUT_QUIT, SHORTCUT_CLEAR_INPUT, COMMANDS, get_theme_primary, get_theme_secondary, get_theme_color, THEME_COLORS
 import os
 import json
 
@@ -11,46 +12,43 @@ def handle_help_command(log_to_buffer):
     dim_color = colors.get("table_border", "#444444")
 
     log_to_buffer("")
-    log_to_buffer(f"[bold {primary_hex}]--- MYWORLD CLI HELP GUIDE ---[/bold {primary_hex}]")
+    log_to_buffer(f"[bold {primary_hex}]--- COMMANDS ---[/bold {primary_hex}]")
     log_to_buffer("")
 
-    header = f"[bold {primary_hex}]{'Command':<12} {'Description'}[/bold {primary_hex}]"
-    log_to_buffer(header)
-    log_to_buffer(f"[dim]{'-' * 50}[/dim]")
-
-    commands = [
+    command_list = [
         ("/theme", "Switch UI color schemes (classic, matrix, cyber, darcula)"),
         ("/sysinfo", "Display hardware specs, CPU, RAM, disk, OS info"),
         ("/copy", "Copy history to clipboard or export to file (--export)"),
         ("/system", "Manage processes & startup apps (Task Manager)"),
-        ("/clear", "Flush terminal buffer (up to 2,500 lines)"),
+        ("/settings", "Open Settings UI to customize shortcuts & commands"),
+        ("/clear", "Flush terminal buffer"),
         ("/quit", "Gracefully exit the application"),
     ]
 
-    for cmd, desc in commands:
+    for cmd, desc in command_list:
         log_to_buffer(f"[{table_text}]{cmd:<12}[/{table_text}] {desc}")
 
     log_to_buffer("")
     log_to_buffer(f"[bold {primary_hex}]--- Key Shortcuts ---[/bold {primary_hex}]")
     log_to_buffer("")
 
-    shortcuts = [
-        ("Shift+Up/Down", "Navigate command history (Inject to input)"),
-        ("Up/Down", "Navigate suggestion menu (When visible)"),
+    shortcuts_list = [
+        ("Shift+Up/Down", "Navigate command history"),
+        ("Up/Down", "Navigate suggestion menu"),
         ("Alt+C", "Clear current input line"),
         ("Ctrl+V", "Paste text to input"),
         ("Ctrl+L", "Quick trigger for /clear"),
         ("Alt+Q", "Quick trigger for /quit"),
     ]
 
-    for key, desc in shortcuts:
+    for key, desc in shortcuts_list:
         log_to_buffer(f"[{table_text}]{key:<10}[/{table_text}] : {desc}")
 
     log_to_buffer("")
     log_to_buffer(f"[bold {primary_hex}]--- Configuration (config.json) ---[/bold {primary_hex}]")
     log_to_buffer("")
 
-    config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.json")
+    config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config", "config.json")
     config = {}
     if os.path.exists(config_path):
         try:

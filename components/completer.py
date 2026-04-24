@@ -30,6 +30,7 @@ class DynamicCommandCompleter(Completer):
                 "--help",
                 "-h",
             ],
+            "/settings": ["--help", "-h"],
             "/copy": ["--last", "--export", "--help", "-h"],
             "/help": [],
             "/quit": [],

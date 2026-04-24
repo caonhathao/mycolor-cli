@@ -13,12 +13,15 @@ from modules.monitors.ram_monitor import RAMMonitor
 
 REFRESH_INTERVAL = 0.5
 
-_WORKER_LOG_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "worker_lifecycle.log")
-_RENDER_LOG_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "render_confirm.log")
+_BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_LOG_DIR = os.path.join(_BASE_DIR, "logs")
+_WORKER_LOG_PATH = os.path.join(_LOG_DIR, "worker_lifecycle.log")
+_RENDER_LOG_PATH = os.path.join(_LOG_DIR, "render_confirm.log")
 
 
 def _log_lifecycle(thread_name, message):
     try:
+        os.makedirs(_LOG_DIR, exist_ok=True)
         with open(_WORKER_LOG_PATH, "a", encoding="utf-8") as f:
             f.write(f"[{time.time():.3f}] TID={threading.get_ident()} {thread_name}: {message}\n")
             f.flush()
@@ -133,7 +136,7 @@ class PerformanceTab(BaseTab):
                     self._try_invalidate()
                 except Exception:
                     try:
-                        with open("error_runtime.log", "a") as f:
+                        with open(os.path.join(_LOG_DIR, "error_runtime.log"), "a") as f:
                             f.write(f"[{monotonic():.3f}] worker_cpu_ram ERROR:\n")
                             f.write(traceback.format_exc())
                     except Exception:
@@ -153,7 +156,7 @@ class PerformanceTab(BaseTab):
                     self._try_invalidate()
                 except Exception:
                     try:
-                        with open("error_runtime.log", "a") as f:
+                        with open(os.path.join(_LOG_DIR, "error_runtime.log"), "a") as f:
                             f.write(f"[{monotonic():.3f}] worker_gpu ERROR:\n")
                             f.write(traceback.format_exc())
                     except Exception:
@@ -173,7 +176,7 @@ class PerformanceTab(BaseTab):
                     self._try_invalidate()
                 except Exception:
                     try:
-                        with open("error_runtime.log", "a") as f:
+                        with open(os.path.join(_LOG_DIR, "error_runtime.log"), "a") as f:
                             f.write(f"[{monotonic():.3f}] worker_net ERROR:\n")
                             f.write(traceback.format_exc())
                     except Exception:

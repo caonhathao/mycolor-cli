@@ -46,7 +46,8 @@ def _handle_export(parts, log_func, output_buffer, notification_trigger):
         pass
 
     # Config handling
-    config_path = "config.json"
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    config_path = os.path.join(base_dir, "config", "config.json")
     config = {}
 
     if os.path.exists(config_path):

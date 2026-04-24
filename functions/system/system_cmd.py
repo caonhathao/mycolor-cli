@@ -1,10 +1,12 @@
 from functions.theme.theme_logic import get_current_theme_colors
 from template.result_response import BaseResponseTemplate
+from modules.constants import get_theme_primary, get_theme_secondary, get_theme_color, THEME_COLORS
 
 from .system_logic import (
     find_processes_by_name,
     kill_processes_by_name,
     launch_taskmgr_window,
+    launch_settings_window,
     run_new_task,
     set_startup_state,
     terminate_process,

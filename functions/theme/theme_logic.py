@@ -134,7 +134,7 @@ def _get_config_path():
     else:
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-    _config_path = os.path.join(base_dir, "config.json")
+    _config_path = os.path.join(base_dir, "config", "config.json")
     return _config_path
 
 
@@ -142,25 +142,26 @@ def get_config_dir():
     """Returns the directory where config should be stored."""
     if getattr(sys, "frozen", False):
         return os.path.dirname(sys.executable)
-    return os.path.dirname(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    )
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    return os.path.join(base_dir, "config")
 
 
 def ensure_config_exists():
     """Creates default config.json if it doesn't exist. Returns path to config."""
     global _fallback_path_used
 
-    config_path = _get_config_path()
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    config_dir = os.path.join(base_dir, "config")
+    config_path = os.path.join(config_dir, "config.json")
 
     try:
+        os.makedirs(config_dir, exist_ok=True)
         if os.path.exists(config_path):
             return config_path
     except OSError:
         pass
 
     default_config = DEFAULT_CONFIG.copy()
-    config_dir = get_config_dir()
     test_write_path = os.path.join(config_dir, ".write_test")
 
     try:

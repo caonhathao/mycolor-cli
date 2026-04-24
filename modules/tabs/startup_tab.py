@@ -10,9 +10,9 @@ from rich.table import Table
 from functions.system.system_logic import get_startup_apps
 from functions.theme.theme_logic import get_current_theme_colors
 from .base_tab import BaseTab
-from ..constants import REFRESH_INTERVAL
+from ..constants import REFRESH_INTERVAL, get_theme_primary, get_theme_color
 
-STARTUP_UPDATE_INTERVAL = REFRESH_INTERVAL
+STARTUP_UPDATE_INTERVAL: float = 0.5
 UI_OFFSET = 5
 
 

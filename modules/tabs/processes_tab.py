@@ -12,9 +12,9 @@ from rich.console import Console
 
 from functions.theme.theme_logic import get_current_theme_colors
 from .base_tab import BaseTab
-from ..constants import REFRESH_INTERVAL, PROCESS_LIMIT
+from ..constants import REFRESH_INTERVAL, PROCESS_LIMIT, get_theme_primary, get_theme_secondary, get_theme_color, THEME_COLORS
 
-PROCESS_UPDATE_INTERVAL = REFRESH_INTERVAL
+PROCESS_UPDATE_INTERVAL: float = 0.5
 UI_OFFSET = 5
 
 _ANSI_BUFFER = io.StringIO()
@@ -49,7 +49,8 @@ def truncate_text(text: str, width: int) -> str:
 
 
 def _load_config() -> Dict[str, Any]:
-    config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "config.json")
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    config_path = os.path.join(base_dir, "config", "config.json")
     try:
         if os.path.exists(config_path):
             with open(config_path, "r", encoding="utf-8") as f:

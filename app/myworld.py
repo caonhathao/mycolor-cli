@@ -1,13 +1,15 @@
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import asyncio
 import json
-import os
 import platform
 import shutil
 import subprocess
-import sys
 import time
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Dict
 
 from prompt_toolkit.application import Application
 from prompt_toolkit.layout.containers import DynamicContainer
@@ -29,10 +31,6 @@ ensure_config_exists()
 
 
 def early_window_resize():
-    """
-    On Windows, attempts to resize the console window based on config.json
-    settings before the TUI is drawn.
-    """
     if platform.system() == "Windows":
         try:
             from functions.theme.theme_logic import _get_config_path
@@ -49,15 +47,10 @@ def early_window_resize():
             pass
 
 
-# --- Argument Filter (Prevent Leakage) ---
-# Filter out common terminal flags that might leak during relaunch
 sys.argv = [arg for arg in sys.argv]
 
-# --- Ultra-Early Window Resize ---
 early_window_resize()
 
-# --- Early Startup Logic ---
-# 1. Parse Mode
 mode = "default"
 if len(sys.argv) > 1 and "--mode" in sys.argv:
     try:
@@ -67,31 +60,28 @@ if len(sys.argv) > 1 and "--mode" in sys.argv:
     except ValueError:
         pass
 
-# 2. Load Config & Resize Terminal
 load_config()
 
 
-# --- Main Application Logic (prompt_toolkit) ---
 async def main_app(mode="default"):
-    # Ensure stdout uses UTF-8 so PowerShell hosts don't mangle Unicode output.
     try:
         reconfig = getattr(sys.stdout, "reconfigure", None)
         if reconfig:
             reconfig(encoding="utf-8")
     except (AttributeError, OSError, ValueError):
-        # Older Python or redirected/stdout objects may not support reconfigure.
         pass
 
-    # --- Check for Windows Terminal and Relaunch if necessary ---
     if platform.system() == "Windows" and not os.environ.get("WT_SESSION"):
         try:
             project_directory = os.getcwd()
+            app_dir = os.path.join(project_directory, "app")
+            myworld_path = os.path.join(app_dir, "myworld.py")
             cmd_args = [
                 "wt.exe",
                 "-d",
                 project_directory,
                 sys.executable,
-                "myworld.py",
+                myworld_path,
             ]
             if mode != "default":
                 cmd_args.extend(["--mode", mode])
@@ -107,7 +97,6 @@ async def main_app(mode="default"):
             print(f"Error relaunching in Windows Terminal: {e}")
             time.sleep(3)
 
-    # Force window size again to stabilize TUI buffer in WT
     if platform.system() == "Windows":
         os.system("mode con: cols=120 lines=30")
         time.sleep(0.2)
@@ -129,26 +118,20 @@ async def main_app(mode="default"):
     kb = get_input_key_bindings(application)
     application.key_bindings = kb
 
-    # --- Unified History Buffer Initialization ---
-    # 1. Create the buffer
     output_buffer = TextArea(
         style="class:output-field", read_only=True, scrollbar=True, focus_on_click=True
     )
 
-    # Update key bindings with output_buffer after it's created
     kb = get_input_key_bindings(application, output_buffer)
     application.key_bindings = kb
 
-    # State Management
     app_state: Dict[str, Any] = {"current_screen": "intro" if mode == "default" else mode}
     setattr(application, "app_state", app_state)
     app_state["app_instance"] = application
 
     def on_input_accept(buff):
-        """Callback when input is accepted."""
         if app_state["current_screen"] == "intro":
             app_state["current_screen"] = "cmd"
-            # Force a redraw to switch layout
             application.renderer.erase()
             application.invalidate()
 
@@ -156,7 +139,6 @@ async def main_app(mode="default"):
         application, output_buffer, on_accept=on_input_accept
     )
 
-    # Initialize Screens
     intro_container = get_intro_screen_container(text_area)
     cmd_container = get_cmd_screen_container(text_area, output_buffer)
 
@@ -168,12 +150,10 @@ async def main_app(mode="default"):
 
     application.style = get_app_style()
 
-    # Use DynamicContainer to switch between screens
     root_container = DynamicContainer(get_root_container)
 
     initial_focus = text_area
 
-    # Force verify initial_focus is a Window
     application.layout = Layout(root_container, focused_element=initial_focus)
 
     with patch_stdout():
@@ -182,7 +162,6 @@ async def main_app(mode="default"):
 
 if __name__ == "__main__":
     try:
-        # --- Ultimate Terminal Reset ---
         if platform.system() == "Windows":
             os.system("mode con: cols=120 lines=30")
             time.sleep(0.3)
@@ -194,12 +173,16 @@ if __name__ == "__main__":
     except Exception:
         import traceback
 
+        os.makedirs("logs", exist_ok=True)
         crash_report = (
             f"Crash Report - {datetime.now()}\n"
             f"{'-' * 30}\n"
             f"{traceback.format_exc()}\n"
             f"{'=' * 30}\n\n"
         )
+
+        with open("logs/mw_crash.log", "w") as f:
+            f.write(crash_report)
 
         print(crash_report, file=sys.stderr)
         input("Press Enter to close...")

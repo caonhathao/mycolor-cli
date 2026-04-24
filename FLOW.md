@@ -6,24 +6,55 @@ This document explains the execution flow from startup through command execution
 
 ## 1. Application Lifecycle
 
-### 1.1 Entry Point Sequence
+### 1.1 Entry Point Sequence (Main Process)
 
 ```
-myworld.py
+app/myworld.py (or run.bat)
   ├── 1. early_window_resize()      # Set terminal to 120x30
   ├── 2. ensure_config_exists()   # Create config.json if missing
   ├── 3. load_config()          # Load theme/window settings
   ├── 4. main_app()             # Async entry point
-      ├── Check WT_SESSION      # Detect Windows Terminal
-      ├── Relaunch in wt.exe   # If not in WT, relaunch
-      ├── Create Application   # prompt_toolkit Application
-      ├── Initialize Screens # intro/cmd/taskmgr containers
-      ├── Create KeyBindings
-      ├── Set Layout + Style
-      └── application.run_async()
+       ├── Check WT_SESSION      # Detect Windows Terminal
+       ├── Relaunch in wt.exe   # If not in WT, relaunch
+       ├── Create Application   # prompt_toolkit Application
+       ├── Initialize Screens   # intro/cmd containers
+       ├── Create KeyBindings
+       ├── Set Layout + Style
+       └── application.run_async()
 ```
 
-### 1.2 Screen Routing
+### 1.1.1 Entry Point Sequence (Task Manager)
+
+```
+app/taskmgr_standalone.py (or run_taskmgr.bat)
+  ├── 1. early_window_resize()      # Set terminal to 120x30
+  ├── 2. ensure_config_exists()   # Create config.json if missing
+  ├── 3. load_config()          # Load theme/window settings
+  ├── 4. main_taskmgr()         # Async entry point
+       ├── Create Application # prompt_toolkit Application
+       ├── Create KeyBindings  # q/ESC to quit, arrows for tab navigation
+       ├── get_taskmgr_layout()  # Build layout via TaskManagerInterface
+       ├── Attach unique app_state to Application
+       ├── Create background task for update_loop()
+       └── application.run_async()
+```
+
+### 1.1.2 Entry Point Sequence (Settings)
+
+```
+app/settings_standalone.py (or run_settings.bat)
+  ├── 1. early_window_resize()      # Set window to 100x35
+  ├── 2. ensure_config_exists()   # Create config.json if missing
+  ├── 3. load_config()          # Load theme/window settings
+  ├── 4. main_settings()       # Async entry point
+       ├── Create Application # prompt_toolkit Application
+       ├── Create KeyBindings  # Tab nav, edit mode, Alt+S save
+       ├── get_settings_layout() # Build layout via SettingsInterface
+       ├── Attach unique app_state to Application
+       └── application.run_async()
+```
+
+### 1.2 Screen Routing (Main Process)
 
 ```
 myworld.py:141-176
@@ -31,7 +62,7 @@ myworld.py:141-176
 ├── get_root_container()          # DynamicContainer callback
 │   ├── "intro" → intro_container
 │   ├── "cmd"   → cmd_container
-│   └── "taskmgr" → taskmgr_container
+│   └── "taskmgr" → taskmgr_container (DEPRECATED - use standalone instead)
 └── application.layout = Layout(root_container, focused_element)
 ```
 
@@ -63,7 +94,7 @@ intro_screen.py (on_input_accept)
                               ▼
 ┌──────────────────────────────────────────────────────────────────────┐
 │ ROUTING PHASE                                                     │
-├──────────────────────────────────────────────────────────────────────┤
+├─────��────────────────────────────────────────────────────────────────┤
 │ 4. accept_input() routes by prefix                                │
 │    ├── "/theme" → handle_theme_command()                          │
 │    ├── "/sysinfo" → handle_sysinfo_command()                       │
@@ -71,7 +102,7 @@ intro_screen.py (on_input_accept)
 │    ├── "/copy" → handle_copy_command()                           │
 │    ├── "/help" → handle_help_command()                          │
 │    ├── "/clear" → handle_clear_command()                       │
-��    ├── "/quit" → application.exit()                           │
+│    ├── "/quit" → application.exit()                           │
 │    ├── Shell builtins (pwd, ls, cd, cls)                       │
 │    └── Default → shell subprocess                             │
 └──────────────────────────────────────────────────────────────────────┘
@@ -89,7 +120,7 @@ intro_screen.py (on_input_accept)
                               │
                               ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│ OUTPUT PHASE                                                    │
+│ OUTPUT PHASE                                                      │
 ├──────────────────────────────────────────────────────────────────────┤
 │ 6. log_to_buffer(renderable, save_to_history=True)              │
 │    ├── rich_to_ansi() via _ANSI_CONSOLE                       │
@@ -100,8 +131,8 @@ intro_screen.py (on_input_accept)
                               │
                               ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│ RENDER PHASE                                                     │
-├──────────────────────────────────────────────────────────────────────┤
+│ RENDER PHASE                                                      │
+├──────────────────────���─��─────────────────────────────────────────────┤
 │ 7. FormattedTextControl.get_formatted_content()                  │
 │    ├── Convert ANSI to FormattedText                              │
 │    └── Return to prompt_toolkit renderer                      │
@@ -159,28 +190,105 @@ Command Handler (e.g., copy_cmd.py)
 
 ---
 
-## 3. Task Manager Flow
+## 3. Task Manager Flow (Standalone Subprocess)
 
-### 3.1 Layout Building
+### 3.1 Launch Flow
 
 ```
-get_taskmgr_layout(application):
+/system --taskmgr (command in main app)
     │
-    ├── TaskManagerInterface.__init__()
-    │   ├── Create tabs (Performance, Processes, Startup)
-    │   ├── Create detail_panel (empty initially)
-    │   └── Start update loop (if performance tab active)
+    ├── handle_system_command() parses --taskmgr flag
     │
-    ├── layout/taskmgr_layout.py
-    │   ├── VSplit of sidebar + main content
-    │   ├── HExpand on main content
-    │   ├── Key bindings for navigation
-    │   └── Tab selector widget
+    ├── Subprocess launch via run_taskmgr.bat
+    │   └── .venv\Scripts\python.exe taskmgr_standalone.py
     │
-    └── Return (container, initial_focus)
+    └── Independent process with unique app_state
 ```
 
-### 3.2 Process Tab Rendering
+### 3.2 Worker Lifecycle (Background Threads)
+
+```
+PerformanceTab.on_activate()
+    │
+    ├── Clear stop events
+    │   ├── _stop_event_cpu_ram.clear()
+    │   ├── _stop_event_gpu.clear()
+    │   └── _stop_event_net.clear()
+    │
+    ├── Spawn worker threads
+    │   ├── worker_cpu_ram()  → Polls CPU + RAM every 0.5s
+    │   ├── worker_gpu()     → Polls GPU every 1.0s
+    │   └── worker_net()     → Polls Network every 0.5s
+    │
+    └── _log_lifecycle("THREAD STARTED")
+```
+
+```
+PerformanceTab.on_deactivate()
+    │
+    ├── Set stop events
+    │   ├── _stop_event_cpu_ram.set()
+    │   ├── _stop_event_gpu.set()
+    │   └── _stop_event_net.set()
+    │
+    ├── Join threads
+    │   └── thread.join(timeout)
+    │
+    └── _log_lifecycle("THREAD EXITED")
+```
+
+### 3.3 Sampling Pipeline (No-Cache)
+
+```
+REFRESH_INTERVAL = 0.5s
+    │
+    ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│ STEP 1: FETCH                                                     │
+├──────────────────────────────────────────────────────────────────────┤
+│ Monitor.update()                                                 │
+│     ├── psutil.cpu_percent() / psutil.virtual_memory()              │
+│     ├── nvidia-ml-py (if GPU available)                          │
+│     ├── psutil.net_io_counters()                                 │
+│     └── Append value to history[] deque                          │
+└──────────────────────────────────────────────────────────────────────┘
+    │
+    ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│ STEP 2: RENDER                                                     │
+├──────────────────────────────────────────────────────────────────────┤
+│ Monitor.render(width, height)                                    │
+│     ├── _get_graph_text() - Generate ASCII graph                  │
+│     ├── Render Panel via Rich.Console                             │
+│     └── self.cached_frame = ANSI string                           │
+└──────────────────────────────────────────────────────────────────────┘
+    │
+    ▼
+┌──────────────────────────────────────────���───────────────────────────┐
+│ STEP 3: UI ACCESS (REGENERATE EVERY TIME)                        │
+├──────────────────────────────────────────────────────────────────────┤
+│ PerformanceTab.render()                                          │
+│     ├── Call monitor.get_cached_frame_safe()                   │
+│     │   └── Returns self.cached_frame (pre-rendered)            │
+│     │                                                          │
+│     └── UI calls get_cached_formatted()                        │
+│         └── PT_ANSI(self.cached_frame)  ← REGENERATED EVERY CALL│
+└──────────────────────────────────────────────────────────────────────┘
+    │
+    ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│ STEP 4: INVALIDATE                                                │
+├──────────────────────────────────────────────────────────────────────┤
+│ Background thread signals UI for redraw                         │
+│     ├── _try_invalidate()                                        │
+│     ├── Check current_screen == "taskmgr"                       │
+│     ├── Get app_id = id(app)                                     │
+│     ├── Log to render_confirm.log                                │
+│     └── app.invalidate() → Force frame redraw                   │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+### 3.4 Process Tab Rendering
 
 ```
 ProcessesTab.render():
@@ -199,7 +307,7 @@ ProcessesTab.render():
     └── Cache rendered ANSI string
 ```
 
-### 3.3 Graph Monitors
+### 3.5 Graph Monitors
 
 ```
 BaseMonitor (modules/monitors/base_monitor.py):
@@ -207,6 +315,7 @@ BaseMonitor (modules/monitors/base_monitor.py):
     ├── collect()        # Collect metric
     ├── get_graph()      # Generate ASCII graph
     ├── stop()           # End collection
+    ├── get_cached_formatted() → PT_ANSI regenerated every call
 
 CPU/RAM/GPU/NetMonitor inherit BaseMonitor:
     ├── CPU: psutil.cpu_percent()
@@ -265,6 +374,7 @@ accept_input() called
 │                           │    /system --taskmgr        │  │
 │                           └────────────────────────→  ┌──────┐
 │                                                    │taskmgr│
+│                                                    │(subprocess)│
 │                                                    └──────┘
 └─────────────────────────────────────────────────────────┘
 ```
@@ -291,14 +401,14 @@ myworld.py (Entry)
     │   └── tips.py
     │
     ├── screens/
-    │   ├���─ intro_screen.py
+    │   ├── intro_screen.py
     │   │   └── logo.py + tips.py + input_area.py
     │   ├── cmd_screen.py
     │   │   ├── output_buffer (TextArea)
     │   │   ├── input_area.py
     │   │   └── notification_state
-    │   └── taskmgr_screen.py
-    │       ├── layout/taskmgr_layout.py
+    │   └── taskmgr_screen.py (DEPRECATED - use standalone)
+    │       └── layout/taskmgr_layout.py
     │       └── modules/ (tabs, monitors, panels)
     │
     ├── modules/tracker/
@@ -309,6 +419,20 @@ myworld.py (Entry)
         ├── sysinfo/sysinfo_cmd.py → sysinfo_logic.py
         ├── system/system_cmd.py → system_logic.py
         └── copy/copy_cmd.py → copy_logic.py
+
+taskmgr_standalone.py (Independent Subprocess Entry)
+    │
+    ├── functions/theme/theme_logic.py
+    │   └── config.json
+    │
+    ├── layout/taskmgr_layout.py
+    │   └── get_taskmgr_layout()
+    │
+    ├── screens/taskmgr_screen.py
+    │   └── TaskManagerInterface
+    │
+    └── modules/tabs/performance_tab.py
+        └── Worker threads (CPU/RAM/GPU/Net monitors)
 ```
 
 ### 5.2 Singleton Pattern
@@ -324,6 +448,45 @@ The following use singleton pattern:
 | Notification trigger | `get_notification_trigger()` | screens/cmd_screen.py |
 | Notification clearer | `get_notification_clearer()` | screens/cmd_screen.py |
 
+### 5.3 Unique State Isolation
+
+| Process | app_state Keys | Isolation |
+|---------|----------------|-----------|
+| `myworld.py` | `current_screen`, `app_instance` | Shared between main screens |
+| `taskmgr_standalone.py` | `current_screen`, `app_instance`, `taskmgr_instance` | Unique per subprocess |
+
 ---
 
-*Generated: Flow Analysis (2026-04-17)*
+## 6. Diagnostic Log Flow
+
+### 6.1 Log File Generation
+
+```
+Application startup
+    │
+    ├── mw_crash.log        → Critical crashes (main entry)
+    ├── crash_debug.log     → Runtime debug info
+    │
+    └── Task Manager subprocess
+        ├── worker_lifecycle.log    → Worker thread events
+        ├── render_confirm.log      → Render/invalidation signals
+        └── ui_data_access.log   → UI data access patterns
+```
+
+### 6.2 Log Entry Examples
+
+```python
+# worker_lifecycle.log
+[1234567.890] TID=1234 CPU_RAM: THREAD STARTED
+[1234567.890] TID=1234 CPU_RAM: PULSE: event_set=False
+[1234567.890] TID=1234 CPU_RAM: FETCHED: CPU=45.3 | hist_len=45
+[1234568.390] TID=1234 CPU_RAM: THREAD EXITED (loop ended)
+
+# render_confirm.log
+[1234567.890] RENDER_CHECK: _has_update=True, app_id=140000, screen=taskmgr, tab=0
+[1234567.890] INVALIDATE: signaling App 140000 (matches parent.app=True)
+```
+
+---
+
+*Generated: Flow Analysis (Updated: 2026-04-23)*

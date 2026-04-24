@@ -113,17 +113,30 @@ def set_startup_state(name, enable):
         return False, str(e)
 
 def launch_taskmgr_window():
-    """Launches the Task Manager in a new terminal window using standalone script."""
+    """Launches the Task Manager in a new terminal window using Windows Terminal."""
+    python_exe = sys.executable
+    project_root = os.getcwd()
+    script_path = os.path.abspath("app/taskmgr_standalone.py")
+    
     try:
-        python_exe = sys.executable
-        script_path = os.path.abspath("taskmgr_standalone.py")
-        work_dir = os.getcwd()
+        cmd_args = [
+            "wt.exe",
+            "-d",
+            project_root,
+            python_exe,
+            script_path,
+        ]
         
-        command = f'start "MYCOLOR - Task Manager" "{python_exe}" "{script_path}"'
-        
-        subprocess.Popen(command, shell=True, cwd=work_dir)
+        subprocess.Popen(cmd_args)
         return True, "Task Manager launched in a new window."
-    except (subprocess.SubprocessError, FileNotFoundError, OSError) as e:
+    except FileNotFoundError:
+        try:
+            command = f'start "MYCOLOR - Task Manager" cmd /c "cd /d {project_root} && {python_exe} {script_path}"'
+            subprocess.Popen(command, shell=True, cwd=project_root)
+            return True, "Task Manager launched in new window (fallback)."
+        except (subprocess.SubprocessError, FileNotFoundError, OSError) as e:
+            return False, str(e)
+    except (subprocess.SubprocessError, OSError) as e:
         return False, str(e)
 
 
@@ -179,3 +192,40 @@ def kill_processes_by_name(name):
             failed += 1
     
     return killed, failed, len(matches)
+
+
+def launch_settings_window():
+    """Launches the Settings UI in a new terminal window using Windows Terminal."""
+    python_exe = sys.executable
+    project_root = os.getcwd()
+    script_path = os.path.abspath("app/settings_standalone.py")
+    
+    try:
+        cmd_args = [
+            "wt.exe",
+            "-d",
+            project_root,
+            python_exe,
+            script_path,
+        ]
+        
+        subprocess.Popen(cmd_args)
+        return True, "Settings launched in a new window."
+    except FileNotFoundError:
+        try:
+            command = f'start "MYCOLOR - Settings" cmd /c "cd /d {project_root} && {python_exe} {script_path}"'
+            subprocess.Popen(command, shell=True, cwd=project_root)
+            return True, "Settings launched in new window (fallback)."
+        except (subprocess.SubprocessError, OSError) as e:
+            return False, str(e)
+    except (subprocess.SubprocessError, OSError) as e:
+        return False, str(e)
+
+
+def run_command_safe(cmd):
+    """Runs a command safely without shell injection risks."""
+    try:
+        subprocess.Popen(cmd, shell=False)
+        return True, f"Started: {cmd}"
+    except (subprocess.SubprocessError, OSError) as e:
+        return False, str(e)

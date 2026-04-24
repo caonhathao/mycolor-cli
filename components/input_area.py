@@ -339,6 +339,26 @@ def get_input_text_area(application_ref, output_buffer, on_accept=None):
             handle_system_command(log_to_buffer, command_text, notification_trigger)
         elif command_text == "/help":
             handle_help_command(log_to_buffer)
+        elif command_text.startswith("/settings"):
+            from functions.system.system_logic import launch_settings_window
+            if "--help" in command_text or "-h" in command_text:
+                colors = functions.theme.theme_logic.get_current_theme_colors()
+                primary_hex = colors["primary"]
+                log_to_buffer("")
+                log_to_buffer(f"[bold {primary_hex}]--- Settings UI ---[/bold {primary_hex}]")
+                log_to_buffer("")
+                log_to_buffer("[bold]Usage:[/bold] /settings")
+                log_to_buffer("")
+                log_to_buffer("Opens a standalone window to manage:")
+                log_to_buffer("  - Customs: theme, logo style, tips visibility")
+                log_to_buffer("  - Shortcuts: keyboard shortcut mappings")
+                log_to_buffer("  - Commands: command aliases")
+                log_to_buffer("")
+                log_to_buffer("[bold #00FF88]Tip: Alt+S saves changes, Alt+Q quits without saving.[/bold #00FF88]")
+            else:
+                success, msg = launch_settings_window()
+                color = "green" if success else "red"
+                log_to_buffer(f"[bold {color}]{msg}[/bold {color}]")
         elif command_text.startswith("/copy"):
             from screens.cmd_screen import get_notification_trigger
 
