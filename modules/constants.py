@@ -56,8 +56,25 @@ def _get_project_root():
         return os.path.dirname(sys.executable)
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if hasattr(sys, 'argv') and sys.argv and 'app' in sys.argv[0]:
-        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(sys.argv[0]))))
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(sys.argv[0])))
     return base_dir
+
+
+ROOT_DIR = _get_project_root()
+
+
+def safe_load_json(path):
+    """Read JSON with shared lock - safe for concurrent reads by multiple processes."""
+    data = {}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        pass
+    return data
+
+
+SETTINGS_PATH = os.path.join(_get_project_root(), "config", "settings.json")
 
 
 def get_settings():
@@ -65,7 +82,7 @@ def get_settings():
     if _SETTINGS_LOADED and _SETTINGS is not None:
         return _SETTINGS
     
-    settings_path = os.path.join(_get_project_root(), "config", "settings.json")
+    settings_path = SETTINGS_PATH
     
     loaded_settings = {}
     
@@ -196,6 +213,26 @@ def get_theme_color(key, default="#c0c0c0"):
     from functions.theme.theme_logic import get_current_theme_colors
     return get_current_theme_colors().get(key, default)
 
+def get_theme_primary_raw():
+    from functions.theme.theme_logic import THEMES, current_theme_name, DEFAULT_THEME
+    theme = THEMES.get(current_theme_name, THEMES.get(DEFAULT_THEME, THEMES["matrix"]))
+    return theme.get("primary", "#00FF41")
+
+def get_theme_secondary_raw():
+    from functions.theme.theme_logic import THEMES, current_theme_name, DEFAULT_THEME
+    theme = THEMES.get(current_theme_name, THEMES.get(DEFAULT_THEME, THEMES["matrix"]))
+    return theme.get("secondary", "#003B00")
+
+def get_theme_bg_raw():
+    from functions.theme.theme_logic import THEMES, current_theme_name, DEFAULT_THEME
+    theme = THEMES.get(current_theme_name, THEMES.get(DEFAULT_THEME, THEMES["matrix"]))
+    return theme.get("background", "#0d1117")
+
+def get_theme_value(key, default="#c0c0c0"):
+    from functions.theme.theme_logic import THEMES, current_theme_name, DEFAULT_THEME
+    theme = THEMES.get(current_theme_name, THEMES.get(DEFAULT_THEME, THEMES["matrix"]))
+    return theme.get(key, default)
+
 def get_colors_dict():
     from functions.theme.theme_logic import get_current_theme_colors
     return get_current_theme_colors()
@@ -203,6 +240,7 @@ def get_colors_dict():
 THEME_PRIMARY = get_theme_primary()
 THEME_SECONDARY = get_theme_secondary()
 THEME_PRIMARY_RGB = get_theme_primary_rgb()
+THEME_BG = get_theme_bg_raw()
 
 # ==================== APPLICATION INFO ====================
 APP_NAME = "MYCOLOR CLI"

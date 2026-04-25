@@ -56,8 +56,7 @@ def handle_system_command(log_to_buffer, command_text, notification_trigger=None
     parts = command_text.split()
     flags = parts[1:] if len(parts) > 1 else []
     
-    colors = get_current_theme_colors()
-    secondary_hex = colors["secondary"]
+    secondary_hex = get_theme_secondary()
 
     if not flags or "-h" in flags or "--help" in flags:
         log_to_buffer(BaseResponseTemplate(
@@ -119,9 +118,8 @@ def handle_system_command(log_to_buffer, command_text, notification_trigger=None
                     log_to_buffer(f"[bold red]{error_msg}[/bold red]")
                 return
             
-            colors = get_current_theme_colors()
-            primary_hex = colors["primary"]
-            secondary_hex = colors["secondary"]
+            primary_hex = get_theme_primary()
+            secondary_hex = get_theme_secondary()
             pid_color = "#00FFFF"
             
             log_to_buffer("")

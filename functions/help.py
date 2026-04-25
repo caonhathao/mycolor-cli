@@ -1,15 +1,13 @@
-from functions.theme.theme_logic import get_current_theme_colors
-from modules.constants import SHORTCUTS, SHORTCUT_CLEAR, SHORTCUT_QUIT, SHORTCUT_CLEAR_INPUT, COMMANDS, get_theme_primary, get_theme_secondary, get_theme_color, THEME_COLORS
+from modules.constants import SHORTCUTS, SHORTCUT_CLEAR, SHORTCUT_QUIT, SHORTCUT_CLEAR_INPUT, COMMANDS, get_theme_primary, get_theme_secondary, get_theme_color, THEME_COLORS, get_settings, _get_project_root
 import os
 import json
 
 
 def handle_help_command(log_to_buffer):
-    colors = get_current_theme_colors()
-    primary_hex = colors["primary"]
-    secondary_hex = colors["secondary"]
-    table_text = colors.get("table_text", "white")
-    dim_color = colors.get("table_border", "#444444")
+    primary_hex = get_theme_primary()
+    secondary_hex = get_theme_secondary()
+    table_text = get_theme_color("table_text", "white")
+    dim_color = get_theme_color("table_border", "#444444")
 
     log_to_buffer("")
     log_to_buffer(f"[bold {primary_hex}]--- COMMANDS ---[/bold {primary_hex}]")
@@ -45,22 +43,14 @@ def handle_help_command(log_to_buffer):
         log_to_buffer(f"[{table_text}]{key:<10}[/{table_text}] : {desc}")
 
     log_to_buffer("")
-    log_to_buffer(f"[bold {primary_hex}]--- Configuration (config.json) ---[/bold {primary_hex}]")
+    log_to_buffer(f"[bold {primary_hex}]--- Configuration (settings.json) ---[/bold {primary_hex}]")
     log_to_buffer("")
 
-    config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config", "config.json")
-    config = {}
-    if os.path.exists(config_path):
-        try:
-            with open(config_path, "r", encoding="utf-8") as f:
-                config = json.load(f)
-        except (json.JSONDecodeError, OSError):
-            pass
-
+    config = get_settings()
     show_system = config.get("show_system_processes", True)
     export_path = config.get("last_export_path", "Not set")
-    theme = config.get("theme", "darcula")
-    interval = config.get("process_update_interval", 3.0)
+    theme = config.get("customs", {}).get("theme", "matrix")
+    interval = config.get("process_update_interval", 0.5)
 
     log_to_buffer(f"[{table_text}]show_system_processes[/{table_text}] : (bool) Toggle OS tasks in /system ({show_system})")
     log_to_buffer(f"[{table_text}]buffer_limit[/{table_text}]           : (int) Max history lines (2,500)")

@@ -8,7 +8,6 @@ from rich.console import Console
 from rich.table import Table
 
 from functions.system.system_logic import get_startup_apps
-from functions.theme.theme_logic import get_current_theme_colors
 from .base_tab import BaseTab
 from ..constants import REFRESH_INTERVAL, get_theme_primary, get_theme_color
 
@@ -58,12 +57,11 @@ class StartupTab(BaseTab):
         if self._cached_content and self._cached_content_hash == data_hash:
             return self._cached_content
 
-        colors = get_current_theme_colors()
-        primary_hex = colors["primary"]
-        suggestion_bg = colors.get("suggestion_bg", "#21262d")
-        table_text = colors.get("table_text", "white")
-        success_color = colors.get("success", "green")
-        error_color = colors.get("error", "red")
+        primary_hex = get_theme_primary()
+        suggestion_bg = get_theme_color("suggestion_bg", "#21262d")
+        table_text = get_theme_color("table_text", "white")
+        success_color = get_theme_color("success", "green")
+        error_color = get_theme_color("error", "red")
 
         console_width = max(10, term_width - 2)
         self._content_console.width = console_width

@@ -15,6 +15,7 @@ from prompt_toolkit.keys import Keys
 from prompt_toolkit.layout.containers import DynamicContainer
 from prompt_toolkit.layout.layout import Layout
 from prompt_toolkit.output import ColorDepth
+from prompt_toolkit.shortcuts import set_title
 from rich.console import Console
 
 from functions.theme.theme_logic import ensure_config_exists, get_app_style, load_config
@@ -24,7 +25,7 @@ from layout.settings_layout import build_settings_layout, get_settings_layout, g
 def early_window_resize():
     if platform.system() == "Windows":
         try:
-            os.system("mode con: cols=100 lines=35")
+            os.system("mode con: cols=120 lines=30")
             time.sleep(0.2)
         except Exception:
             pass
@@ -47,6 +48,8 @@ load_config()
 
 async def main_settings():
     _write_debug_log("main_settings() started")
+
+    set_title("SETTINGS MANAGER")
 
     if platform.system() == "Windows":
         os.system("cls")
@@ -96,6 +99,7 @@ async def main_settings():
             interface.cancel_edit()
         else:
             interface.switch_tab(-1)
+            event.app.invalidate()
 
     @kb.add("right")
     def next_tab(event):
@@ -103,28 +107,34 @@ async def main_settings():
             interface.cancel_edit()
         else:
             interface.switch_tab(1)
+            event.app.invalidate()
 
     @kb.add("up")
     def move_up(event):
         if not interface.edit_mode:
             interface.move_selection(-1)
+            event.app.invalidate()
 
     @kb.add("down")
     def move_down(event):
         if not interface.edit_mode:
             interface.move_selection(1)
+            event.app.invalidate()
 
     @kb.add("enter")
     def handle_enter(event):
         if interface.edit_mode:
             interface.confirm_edit()
+            event.app.invalidate()
         else:
             interface.enter_edit_mode()
+            event.app.invalidate()
 
     @kb.add("backspace")
     def handle_backspace(event):
         if interface.edit_mode:
             interface.backspace_edit_value()
+            event.app.invalidate()
 
     @kb.add("c-s")
     def save_settings(event):
@@ -158,11 +168,13 @@ async def main_settings():
     def handle_up(event):
         if not interface.edit_mode:
             interface.move_selection(-1)
+            event.app.invalidate()
 
     @kb.add(Keys.Down)
     def handle_down(event):
         if not interface.edit_mode:
             interface.move_selection(1)
+            event.app.invalidate()
 
     @kb.add(Keys.Left)
     def handle_left(event):
@@ -170,6 +182,7 @@ async def main_settings():
             interface.cancel_edit()
         else:
             interface.switch_tab(-1)
+            event.app.invalidate()
 
     @kb.add(Keys.Right)
     def handle_right(event):
@@ -177,23 +190,28 @@ async def main_settings():
             interface.cancel_edit()
         else:
             interface.switch_tab(1)
+            event.app.invalidate()
 
     @kb.add(Keys.Enter)
     def handle_enter_key(event):
         if interface.edit_mode:
             interface.confirm_edit()
+            event.app.invalidate()
         else:
             interface.enter_edit_mode()
+            event.app.invalidate()
 
     @kb.add(Keys.Backspace)
     def handle_backspace_key(event):
         if interface.edit_mode:
             interface.backspace_edit_value()
+            event.app.invalidate()
 
     @kb.add(Keys.Escape)
     def handle_escape(event):
         if interface.edit_mode:
             interface.cancel_edit()
+            event.app.invalidate()
         else:
             interface.running = False
             event.app.exit()
@@ -222,13 +240,6 @@ async def main_settings():
 if __name__ == "__main__":
     _write_debug_log("=== Script started ===")
     try:
-        if platform.system() == "Windows":
-            os.system("mode con: cols=100 lines=35")
-            time.sleep(0.2)
-            os.system("cls")
-            sys.stdout.write("\033[H")
-            sys.stdout.flush()
-
         asyncio.run(main_settings())
     except Exception:
         import traceback

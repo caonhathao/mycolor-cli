@@ -17,7 +17,7 @@ from prompt_toolkit.output import ColorDepth
 from rich.console import Console
 
 from functions.theme.theme_logic import ensure_config_exists, get_app_style, load_config
-from layout.taskmgr_layout import build_taskmgr_layout, get_current_taskmgr_interface
+from layout.taskmgr_layout import get_taskmgr_layout, get_current_taskmgr_interface
 
 
 def early_window_resize():
@@ -62,7 +62,7 @@ async def main_taskmgr():
 
     kb = KeyBindings()
 
-    container, focus = build_taskmgr_layout(application)
+    container, focus = get_taskmgr_layout(application)
     interface = get_current_taskmgr_interface()
 
     if not interface:
@@ -117,10 +117,12 @@ if __name__ == "__main__":
         import traceback
         os.makedirs("logs", exist_ok=True)
         crash_report = (
-            f"Crash Report - {datetime.now()}\n"
-            f"{'-' * 30}\n"
+            f"=== TASK MANAGER CRASH REPORT ===\n"
+            f"Time: {datetime.now()}\n"
+            f"PID: {os.getpid()}\n"
+            f"{'-' * 40}\n"
             f"{traceback.format_exc()}\n"
-            f"{'=' * 30}\n\n"
+            f"{'=' * 40}\n\n"
         )
-        with open("logs/mw_crash.log", "w") as f:
+        with open("logs/taskmgr_crash.log", "w", encoding="utf-8") as f:
             f.write(crash_report)

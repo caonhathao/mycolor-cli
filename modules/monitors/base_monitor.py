@@ -16,7 +16,7 @@ from prompt_toolkit.formatted_text import ANSI as PT_ANSI
 def _load_interval():
     try:
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        config_path = os.path.join(base_dir, "config", "config.json")
+        config_path = os.path.join(base_dir, "config", "settings.json")
         if os.path.exists(config_path):
             with open(config_path, "r", encoding="utf-8") as f:
                 return json.load(f).get("process_update_interval", 0.5)

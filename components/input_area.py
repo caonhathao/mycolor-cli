@@ -30,6 +30,7 @@ from functions.clear import handle_clear_command
 from functions.copy.copy_cmd import handle_copy_command
 from components.completer import DynamicCommandCompleter
 from modules.tracker.history_tracker import get_history_tracker
+from modules.constants import get_theme_primary, get_theme_color, THEME_COLORS
 
 _ANSI_BUFFER = io.StringIO()
 _ANSI_CONSOLE = Console(file=_ANSI_BUFFER, force_terminal=True, width=80, color_system="truecolor")
@@ -216,8 +217,7 @@ def get_input_text_area(application_ref, output_buffer, on_accept=None):
                         decoded = line.decode("cp437", errors="replace").rstrip()
 
                     if decoded:
-                        colors = functions.theme.theme_logic.get_current_theme_colors()
-                        error_color = colors.get("error", "red")
+                        error_color = get_theme_color("error", "red")
                         style = f"bold {error_color}" if is_stderr else color_hex
                         # Log to buffer and let it handle history capture
                         log_func(f"[{style}]{decoded}[/{style}]", save_to_history=True)
@@ -228,8 +228,7 @@ def get_input_text_area(application_ref, output_buffer, on_accept=None):
             )
             await process.wait()
         except Exception as e:
-            colors = functions.theme.theme_logic.get_current_theme_colors()
-            error_color = colors.get("error", "red")
+            error_color = get_theme_color("error", "red")
             log_func(f"[bold {error_color}]Error executing command: {e}[/bold {error_color}]")
 
     def accept_input(buff):
@@ -306,10 +305,9 @@ def get_input_text_area(application_ref, output_buffer, on_accept=None):
 
             # Echo the command to history
             # New OpenCode aesthetic: Accent bar + Lighter background
-            colors = functions.theme.theme_logic.get_current_theme_colors()
-            primary_hex = colors["primary"]
-            suggestion_bg = colors.get("suggestion_bg", "#21262d")
-            table_text = colors.get("table_text", "white")
+            primary_hex = get_theme_primary()
+            suggestion_bg = get_theme_color("suggestion_bg", "#21262d")
+            table_text = get_theme_color("table_text", "white")
 
             history_line = Text()
             history_line.append("▋", style=f"{primary_hex} on {suggestion_bg}")
@@ -342,8 +340,7 @@ def get_input_text_area(application_ref, output_buffer, on_accept=None):
         elif command_text.startswith("/settings"):
             from functions.system.system_logic import launch_settings_window
             if "--help" in command_text or "-h" in command_text:
-                colors = functions.theme.theme_logic.get_current_theme_colors()
-                primary_hex = colors["primary"]
+                primary_hex = get_theme_primary()
                 log_to_buffer("")
                 log_to_buffer(f"[bold {primary_hex}]--- Settings UI ---[/bold {primary_hex}]")
                 log_to_buffer("")

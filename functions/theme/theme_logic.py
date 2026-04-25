@@ -123,8 +123,8 @@ _config_path = None
 _fallback_path_used = False
 
 
-def _get_config_path():
-    """Returns the path to config.json, handling frozen (.exe) mode."""
+def _get_settings_path():
+    """Returns the path to settings.json, handling frozen (.exe) mode."""
     global _config_path
     if _config_path is not None:
         return _config_path
@@ -134,8 +134,13 @@ def _get_config_path():
     else:
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-    _config_path = os.path.join(base_dir, "config", "config.json")
+    _config_path = os.path.join(base_dir, "config", "settings.json")
     return _config_path
+
+
+def _get_config_path():
+    """Backward-compatible alias for _get_settings_path()."""
+    return _get_settings_path()
 
 
 def get_config_dir():
@@ -147,12 +152,12 @@ def get_config_dir():
 
 
 def ensure_config_exists():
-    """Creates default config.json if it doesn't exist. Returns path to config."""
+    """Creates default settings.json if it doesn't exist. Returns path to config."""
     global _fallback_path_used
 
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     config_dir = os.path.join(base_dir, "config")
-    config_path = os.path.join(config_dir, "config.json")
+    config_path = os.path.join(config_dir, "settings.json")
 
     try:
         os.makedirs(config_dir, exist_ok=True)
@@ -178,7 +183,7 @@ def ensure_config_exists():
     except OSError:
         write_dir = os.environ.get("TEMP", "")
 
-    config_path = os.path.join(write_dir, "config.json")
+    config_path = os.path.join(write_dir, "settings.json")
 
     try:
         with open(config_path, "w") as f:
@@ -192,7 +197,7 @@ def ensure_config_exists():
 
 
 def set_theme(theme_name, save=True):
-    """Sets the current theme. Optionally saves to config.json."""
+    """Sets the current theme. Optionally saves to settings.json."""
     global current_theme_name, current_theme
     if theme_name in THEMES:
         current_theme_name = theme_name
@@ -204,9 +209,9 @@ def set_theme(theme_name, save=True):
 
 
 def load_config():
-    """Loads theme from config.json."""
+    """Loads theme from settings.json."""
     try:
-        config_path = _get_config_path()
+        config_path = _get_settings_path()
         with open(config_path, "r") as f:
             config = json.load(f)
             theme_name = config.get("theme")
@@ -217,9 +222,9 @@ def load_config():
 
 
 def save_config():
-    """Saves current theme to config.json."""
+    """Saves current theme to settings.json."""
     try:
-        config_path = _get_config_path()
+        config_path = _get_settings_path()
         try:
             with open(config_path, "r") as f:
                 config = json.load(f)

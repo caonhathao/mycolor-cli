@@ -1,6 +1,5 @@
-from functions.theme.theme_logic import get_current_theme_colors
 from template.result_response import BaseResponseTemplate
-
+from modules.constants import get_theme_primary, get_theme_secondary
 from .sysinfo_logic import (
     get_cpu_info,
     get_disk_info,
@@ -26,9 +25,8 @@ def handle_sysinfo_command(log_to_buffer, command_text=""):
     parts = command_text.split()
     flags = parts[1:] if len(parts) > 1 else []
     
-    colors = get_current_theme_colors()
-    primary_hex = colors["primary"]
-    secondary_hex = colors["secondary"]
+    primary_hex = get_theme_primary()
+    secondary_hex = get_theme_secondary()
 
     if not flags or "--help" in flags or "-h" in flags:
         # Show Guide

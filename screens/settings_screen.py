@@ -1,23 +1,27 @@
+import io
 import json
 import os
 import shutil
-import sys
+import socket
 import threading
-from time import monotonic
 
-from prompt_toolkit.application import Application
-from prompt_toolkit.formatted_text import ANSI
+from prompt_toolkit.formatted_text import ANSI, HTML
+from rich.console import Console
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from modules.constants import (
+    get_theme_primary, get_theme_color, THEME_COLORS, get_settings, SETTINGS_PATH, get_colors_dict, ROOT_DIR
+)
 
-from functions.theme.theme_logic import _get_config_path
-from modules.constants import get_theme_primary, get_theme_color, get_colors_dict, THEME_COLORS
+_ANSI_BUFFER = io.StringIO()
+_ANSI_CONSOLE = Console(file=_ANSI_BUFFER, force_terminal=True, width=120, color_system="truecolor")
 
-def _get_project_root():
-    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+EDIT_MODE_COLOR = "#FFFF00"
 
-
-SETTINGS_PATH = os.path.join(_get_project_root(), "config", "settings.json")
+COL_WIDTHS = {
+    "key": 20,
+    "value": 25,
+    "desc": 30,
+}
 
 
 def _load_settings():
@@ -95,6 +99,7 @@ class SettingsInterface:
         self.shortcuts_items = list(self._settings.get("shortcuts", {}).items())
         self.commands_items = list(self._settings.get("commands", {}).items())
 
+        self.customs_selected = 0
         self.shortcuts_selected = 0
         self.commands_selected = 0
         self.commands_scroll_offset = 0
@@ -108,48 +113,40 @@ class SettingsInterface:
 
     def get_header(self):
         primary_hex = get_theme_primary()
-        primary = primary_hex
-        r, g, b = int(primary[1:3], 16), int(primary[3:5], 16), int(primary[5:7], 16)
-        title = f"[\033[38;2;{r};{g};{b}m]  MYCOLOR CLI - Settings  [\033[0m"
-        content = [
-            ("class:header", f"  MYCOLOR CLI - Settings Manager  "),
-        ]
-        return content
-
-    def get_tabs(self):
-        primary_hex = get_theme_primary()
-        primary = primary_hex
-        content = []
-        tab_names = ["Customs", "Shortcuts", "Commands"]
-        for i, name in enumerate(tab_names):
-            if i == self.active_tab:
-                r, g, b = int(primary[1:3], 16), int(primary[3:5], 16), int(primary[5:7], 16)
-                content.append(("class:tab-active", f" [{name}] "))
-            else:
-                content.append(("class:tab-inactive", f" {name} "))
-        return content
+        header_text = get_theme_color("header_text", THEME_COLORS["header_text"])
+        hostname = socket.gethostname()
+        return [(f"bg:{primary_hex} fg:{header_text} bold", f" SETTINGS MANAGER - {hostname} ")]
 
     def get_content(self):
-        table_text = get_theme_color("table_text", THEME_COLORS["table_text"])
-        primary = get_theme_primary()
-        r, g, b = int(primary[1:3], 16), int(primary[3:5], 16), int(primary[5:7], 16)
+        _ANSI_BUFFER.seek(0)
+        _ANSI_BUFFER.truncate(0)
+        
+        colors = get_colors_dict()
+        primary_hex = colors["primary"]
+        r, g, b = int(primary_hex[1:3], 16), int(primary_hex[3:5], 16), int(primary_hex[5:7], 16)
 
-        lines = []
         if self.active_tab == self.TAB_CUSTOM:
-            lines = self._render_customs(table_text, r, g, b)
+            self._render_customs(r, g, b, colors)
         elif self.active_tab == self.TAB_SHORTCUTS:
-            lines = self._render_shortcuts(table_text, r, g, b)
+            self._render_shortcuts(r, g, b, colors)
         elif self.active_tab == self.TAB_COMMANDS:
-            lines = self._render_commands(table_text, r, g, b)
+            self._render_commands(r, g, b, colors)
 
-        return ANSI("\n".join(lines))
+        return ANSI(_ANSI_BUFFER.getvalue())
 
-    def _render_customs(self, table_text, r, g, b):
-        lines = []
+    def _render_customs(self, r, g, b, colors):
         customs = self._settings.get("customs", {})
+        primary_hex = colors["primary"]
+        suggestion_bg = colors.get("suggestion_bg", "#21262d")
+        table_text = colors.get("table_text", "#BBBBBB")
+        accent = colors.get("accent", "#00FF41")
 
-        lines.append(f"\033[38;2;{r};{g};{b}m  --- VISUAL CUSTOMIZATION ---\033[0m")
-        lines.append("")
+        KEY_COL = 18
+        VAL_COL = 20
+        DESC_COL = 25
+
+        _ANSI_CONSOLE.print(f"[bold #00FFFF]{'SETTING':<{KEY_COL}}[/][bold white]{'VALUE':<{VAL_COL}}[/][bold #00FF88]{'DESCRIPTION':<{DESC_COL}}[/]")
+        _ANSI_CONSOLE.print("[dim]" + "─" * (KEY_COL + VAL_COL + DESC_COL) + "[/dim]")
 
         theme = customs.get("theme", "matrix")
         logo_style = customs.get("logo_style", "gradient")
@@ -158,110 +155,126 @@ class SettingsInterface:
         cursor = customs.get("cursor_style", "block")
 
         items = [
-            ("theme", theme, "UI color scheme (matrix, classic, cyber, darcula)"),
-            ("logo_style", logo_style, "Logo rendering style (gradient, flat, neon)"),
-            ("show_tips", str(show_tips), "Show tips on intro screen"),
-            ("show_logo_shadow", str(show_shadow), "Show shadow effect under logo"),
-            ("cursor_style", cursor, "Cursor shape (block, underline, bar)"),
+            ("theme", theme, "UI color scheme"),
+            ("logo_style", logo_style, "Logo rendering style"),
+            ("show_tips", str(show_tips), "Show tips on intro"),
+            ("show_logo_shadow", str(show_shadow), "Show logo shadow"),
+            ("cursor_style", cursor, "Cursor shape"),
         ]
 
         for i, (key, val, desc) in enumerate(items):
-            if i == 0:
-                prefix = "\033[38;2;0;255;136m>>\033[0m"
+            is_selected = (i == self.customs_selected)
+            row = f"[#00FFFF]{key:<{KEY_COL}}[/][{table_text}]{val:<{VAL_COL}}[/][{accent}]{desc:<{DESC_COL}}[/]"
+            if is_selected:
+                _ANSI_CONSOLE.print(f"[on {suggestion_bg}]{row}[/on {suggestion_bg}]")
             else:
-                prefix = "  "
-            lines.append(f"{prefix} {key}: \033[38;2;{r};{g};{b}m{val}\033[0m  ({desc})")
+                _ANSI_CONSOLE.print(row)
 
-        return lines
+    def _render_shortcuts(self, r, g, b, colors):
+        primary_hex = colors["primary"]
+        suggestion_bg = colors.get("suggestion_bg", "#21262d")
+        table_text = colors.get("table_text", "#BBBBBB")
+        accent = colors.get("accent", "#00FF41")
 
-    def _render_shortcuts(self, table_text, r, g, b):
-        lines = []
-        lines.append(f"\033[38;2;{r};{g};{b}m  --- KEYBOARD SHORTCUTS ---\033[0m")
-        lines.append("")
-        lines.append(f"  [\033[38;2;0;255;136mKeys\033[0m]          [\033[38;2;{r};{g};{b}mAction\033[0m]")
-        lines.append(f"  {'-'*15}        {'-'*30}")
+        KEY_COL = 20
+        ACTION_COL = 30
+        DESC_COL = 35
+
+        _ANSI_CONSOLE.print(f"[bold #00FFFF]{'KEY':<{KEY_COL}}[/][bold white]{'ACTION':<{ACTION_COL}}[/][bold #00FF88]{'DESCRIPTION':<{DESC_COL}}[/]")
+        _ANSI_CONSOLE.print("[dim]" + "─" * (KEY_COL + ACTION_COL + DESC_COL) + "[/dim]")
 
         shortcuts = self._settings.get("shortcuts", {})
         items = list(shortcuts.items())
+        descriptions = {
+            "/clear": "Clear terminal screen",
+            "/quit": "Exit application",
+            "clear_input": "Clear command input",
+            "history_prev": "Previous command history",
+            "history_next": "Next command history",
+        }
 
         for i, (key, action) in enumerate(items):
-            if i == self.shortcuts_selected:
-                prefix = "\033[38;2;0;255;136m>>\033[0m"
+            is_selected = (i == self.shortcuts_selected)
+            desc = descriptions.get(action, "")
+            row = f"[#00FFFF]{key:<{KEY_COL}}[/][{table_text}]{action:<{ACTION_COL}}[/][{accent}]{desc:<{DESC_COL}}[/]"
+            if is_selected:
+                _ANSI_CONSOLE.print(f"[on {suggestion_bg}]{row}[/on {suggestion_bg}]")
             else:
-                prefix = "  "
-            if self.edit_mode and i == self.shortcuts_selected and self.edit_key == "shortcuts":
-                lines.append(f"{prefix} {key}: \033[38;2;{r};{g};{b}m[\033[31mEDITING: {action}\033[0m]\033[38;2;{r};{g};{b}m\033[0m")
-            else:
-                lines.append(f"{prefix} {key:<13} \033[38;2;{r};{g};{b}m{action}\033[0m")
+                _ANSI_CONSOLE.print(row)
 
-        return lines
+    def _render_commands(self, r, g, b, colors):
+        primary_hex = colors["primary"]
+        suggestion_bg = colors.get("suggestion_bg", "#21262d")
+        table_text = colors.get("table_text", "#BBBBBB")
 
-    def _render_commands(self, table_text, r, g, b):
-        lines = []
-        lines.append(f"\033[38;2;{r};{g};{b}m  --- COMMAND ALIASES ---\033[0m")
-        lines.append("")
-        lines.append(f"  [\033[38;2;0;255;136mAlias\033[0m]           [\033[38;2;{r};{g};{b}mCommand\033[0m]")
-        lines.append(f"  {'-'*15}        {'-'*40}")
+        ALIAS_COL = 20
+        CMD_COL = 35
+
+        _ANSI_CONSOLE.print(f"[bold #00FFFF]{'ALIAS':<{ALIAS_COL}}[/][bold white]{'COMMAND':<{CMD_COL}}[/]")
+        _ANSI_CONSOLE.print("[dim]" + "─" * (ALIAS_COL + CMD_COL) + "[/dim]")
 
         commands = self._settings.get("commands", {})
         items = list(commands.items())
 
-        visible_height = max(1, shutil.get_terminal_size().lines - 12)
-        visible_items = items[self.commands_scroll_offset:self.commands_scroll_offset + visible_height]
-
-        for i, (alias, cmd) in enumerate(visible_items):
-            actual_idx = i + self.commands_scroll_offset
-            if actual_idx == self.commands_selected:
-                prefix = "\033[38;2;0;255;136m>>\033[0m"
+        for i, (alias, cmd) in enumerate(items):
+            is_selected = (i == self.commands_selected)
+            row = f"[#00FFFF]{alias:<{ALIAS_COL}}[/][{table_text}]{cmd:<{CMD_COL}}[/]"
+            if is_selected:
+                _ANSI_CONSOLE.print(f"[on {suggestion_bg}]{row}[/on {suggestion_bg}]")
             else:
-                prefix = "  "
+                _ANSI_CONSOLE.print(row)
 
-            if self.edit_mode and actual_idx == self.commands_selected and self.edit_key == "commands":
-                lines.append(f"{prefix} {alias:<15} \033[38;2;{r};{g};{b}m[\033[31mEDITING: {cmd}\033[0m]\033[38;2;{r};{g};{b}m\033[0m")
+    def get_tabs(self):
+        primary_hex = get_theme_primary()
+        tab_names = ["Customs", "Shortcuts", "Commands"]
+        
+        parts = []
+        for i, tab in enumerate(tab_names):
+            if i == self.active_tab:
+                parts.append(f'<b><span color="{primary_hex}">[{tab}]</span></b>')
             else:
-                lines.append(f"{prefix} {alias:<15} \033[38;2;{r};{g};{b}m{cmd}\033[0m")
-
-        if len(items) > visible_height:
-            lines.append("")
-            lines.append(f"  [\033[33mShowing {self.commands_scroll_offset + 1}-{min(self.commands_scroll_offset + visible_height, len(items))} of {len(items)}\033[0m]")
-
-        return lines
+                parts.append(f'<span color="#555555">[{tab}]</span>')
+        
+        return HTML('  '.join(parts))
 
     def get_hints(self):
-        primary = get_theme_primary()
-        r, g, b = int(primary[1:3], 16), int(primary[3:5], 16), int(primary[5:7], 16)
+        return HTML(
+            '<span color="#00FF41">[Left/Right]</span> Switch Tabs  |  '
+            '<span color="#00FF41">[Up/Down]</span> Navigate  |  '
+            '<span color="#00FF41">[Enter]</span> Edit  |  '
+            '<span color="#00FF41">[Ctrl+S]</span> Save  |  '
+            '<span color="#00FF41">[Q]</span> Quit'
+        )
 
-        hints = [
-            f"  \033[38;2;{r};{g};{b}m<\033[0m\033[38;2;{r};{g};{b}m Left/Right\033[0m: Switch tabs",
-            f"  \033[38;2;{r};{g};{b}m<\033[0m\033[38;2;{r};{g};{b}m Up/Down\033[0m: Navigate    ",
-            f"  \033[38;2;{r};{g};{b}m<\033[0m\033[38;2;{r};{g};{b}m Enter\033[0m: Edit/Save    ",
-            f"  \033[38;2;{r};{g};{b}m<\033[0m\033[38;2;{r};{g};{b}m Alt+S\033[0m: Save all      ",
-            f"  \033[38;2;{r};{g};{b}m<\033[0m\033[38;2;{r};{g};{b}m Alt+Q\033[0m: Quit (no save)",
-        ]
-        return ANSI("\n".join(hints))
-
-    def get_status_bar(self):
-        primary = get_theme_primary()
-        r, g, b = int(primary[1:3], 16), int(primary[3:5], 16), int(primary[5:7], 16)
-
-        status = "Settings"
+    def get_system_info(self):
         if self.edit_mode:
-            status = f"EDIT MODE: Press Enter to confirm"
+            return HTML(f'<span color="#FFFF00">EDIT: {self.edit_value}</span>')
         elif self.pending_changes:
-            status = f"Changes pending: {len(self.pending_changes)}"
-
-        return ANSI(f"  \033[38;2;{r};{g};{b}m{status}\033[0m" + " " * 40)
+            return HTML(f'<span color="#FF8800">{len(self.pending_changes)} changes</span>')
+        else:
+            hostname = socket.gethostname()
+            return HTML(f'<span color="#00FF41">{ROOT_DIR}</span> <span color="#00FF41">|</span> <span color="#00FFFF">{hostname}</span> <span color="#00FF41">|</span> <span color="#00FF41">v0.0.1</span>')
 
     def switch_tab(self, direction):
+        old_tab = self.active_tab
         self.active_tab = (self.active_tab + direction) % 3
-        self.reset_selection()
-        self._data_changed = True
+        
+        if old_tab != self.active_tab:
+            self.reset_selection()
+            self._data_changed = True
+            
+            if hasattr(self, 'app'):
+                self.app.renderer.clear()
+                self.app.invalidate()
 
     def reset_selection(self):
         self.edit_mode = False
         self.edit_key = None
         self.edit_value = ""
-        if self.active_tab == self.TAB_SHORTCUTS:
+        
+        if self.active_tab == self.TAB_CUSTOM:
+            self.customs_selected = 0
+        elif self.active_tab == self.TAB_SHORTCUTS:
             self.shortcuts_selected = 0
         elif self.active_tab == self.TAB_COMMANDS:
             self.commands_selected = 0
@@ -271,7 +284,17 @@ class SettingsInterface:
         if self.edit_mode:
             return
 
-        if self.active_tab == self.TAB_SHORTCUTS:
+        if self.active_tab == self.TAB_CUSTOM:
+            customs_items = [
+                ("theme", None, None),
+                ("logo_style", None, None),
+                ("show_tips", None, None),
+                ("show_logo_shadow", None, None),
+                ("cursor_style", None, None),
+            ]
+            max_idx = len(customs_items) - 1
+            self.customs_selected = max(0, min(max_idx, self.customs_selected + direction))
+        elif self.active_tab == self.TAB_SHORTCUTS:
             max_idx = len(self.shortcuts_items) - 1
             self.shortcuts_selected = max(0, min(max_idx, self.shortcuts_selected + direction))
         elif self.active_tab == self.TAB_COMMANDS:
@@ -282,7 +305,7 @@ class SettingsInterface:
         self._data_changed = True
 
     def _update_commands_scroll(self):
-        visible_height = max(1, shutil.get_terminal_size().lines - 12)
+        visible_height = max(5, shutil.get_terminal_size().lines - 10)
         if self.commands_selected < self.commands_scroll_offset:
             self.commands_scroll_offset = self.commands_selected
         elif self.commands_selected >= self.commands_scroll_offset + visible_height:

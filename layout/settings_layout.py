@@ -1,24 +1,30 @@
-import os
-import sys
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-import functions.theme.theme_logic
+from prompt_toolkit.filters import Condition
 from prompt_toolkit.key_binding import KeyBindings
-from prompt_toolkit.layout.containers import DynamicContainer, HSplit, VSplit, Window
+from prompt_toolkit.layout.containers import (
+    ConditionalContainer,
+    DynamicContainer,
+    HSplit,
+    VSplit,
+    Window,
+    WindowAlign,
+)
 from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.layout.dimension import Dimension
-from prompt_toolkit.output import ColorDepth
+
+from modules.constants import get_theme_primary, THEME_COLORS
 
 TAB_CUSTOM = 0
 TAB_SHORTCUTS = 1
 TAB_COMMANDS = 2
-TAB_NAMES = ["Customs", "Shortcuts", "Commands"]
 
 _current_interface = None
 
 
 def get_settings_layout(app):
+    """
+    Initializes the Settings interface and builds the layout.
+    Returns (root_container, initial_focus_element).
+    """
     global _current_interface
     from screens.settings_screen import SettingsInterface
     interface = SettingsInterface(app)
@@ -28,68 +34,77 @@ def get_settings_layout(app):
 
 
 def get_current_settings_interface():
+    """Returns the current SettingsInterface instance."""
     return _current_interface
 
 
 def build_settings_layout(interface):
-    if not hasattr(interface, 'get_header'):
-        raise TypeError(f"Expected SettingsInterface, got {type(interface).__name__}. Use get_settings_layout() instead.")
+    primary_hex = get_theme_primary()
     
-    primary_hex = functions.theme.theme_logic.get_pt_color_hex(
-        functions.theme.theme_logic.current_theme.get("primary", "#00FF41")
-    )
-    accent_hex = functions.theme.theme_logic.get_pt_color_hex(
-        functions.theme.theme_logic.current_theme.get("primary", "#00FF41")
-    )
-
     kb = KeyBindings()
 
+    # 1. Header Window
     header_window = Window(
         content=FormattedTextControl(interface.get_header),
         height=1,
         style=f"bg:{primary_hex}",
+        align=WindowAlign.CENTER,
         dont_extend_height=True,
     )
 
-    tabs_window = Window(
-        content=FormattedTextControl(interface.get_tabs),
-        height=1,
-        style="class:footer-pad",
-    )
-
+    # 2. Main Content Window - focusable for keyboard navigation
     content_window = Window(
-        content=FormattedTextControl(interface.get_content, focusable=False),
+        content=FormattedTextControl(interface.get_content, focusable=True),
         style="class:output-field",
         height=Dimension(weight=1),
+        width=Dimension(weight=1),
+        dont_extend_width=False,
     )
 
-    hints_window = Window(
-        content=FormattedTextControl(interface.get_hints),
-        height=2,
-        style="class:footer-pad",
-    )
+    # 3. Footer: 3-Layer Vertical Stack (HSplit) - Tabs | Guide | System Info
+    footer = HSplit([
+        Window(
+            content=FormattedTextControl(interface.get_tabs),
+            height=1,
+            align=WindowAlign.CENTER,
+            style="class:footer-pad",
+        ),
+        Window(
+            content=FormattedTextControl(interface.get_hints),
+            height=1,
+            align=WindowAlign.CENTER,
+            style="class:footer-pad",
+        ),
+        Window(
+            content=FormattedTextControl(interface.get_system_info),
+            height=1,
+            align=WindowAlign.RIGHT,
+            style="class:footer-pad",
+        ),
+    ])
 
-    status_window = Window(
-        content=FormattedTextControl(interface.get_status_bar),
-        height=1,
-        style="class:footer-pad",
-    )
+    # Visual separator between content and footer
+    divider = Window(height=1, char="─", style="class:footer-divider")
 
+    # Middle Area with 1-char padding
+    middle_area = VSplit([
+        Window(width=1),
+        content_window,
+        Window(width=1),
+    ])
+
+    # Root Container
     root_container = HSplit(
         [
             header_window,
-            VSplit([
-                Window(width=1, char=" ", style="class:footer-pad"),
-                content_window,
-                Window(width=1, char=" ", style="class:footer-pad"),
-            ]),
-            tabs_window,
-            hints_window,
-            status_window,
+            middle_area,
+            divider,
+            footer,
         ],
         key_bindings=kb,
         style="class:app-background",
-        width=Dimension(min=80),
+        width=Dimension(weight=1),
+        height=Dimension(weight=1),
     )
 
     return root_container, content_window

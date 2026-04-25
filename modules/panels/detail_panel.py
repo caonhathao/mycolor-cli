@@ -9,7 +9,7 @@ from rich.align import Align
 from rich.console import Console
 from rich.panel import Panel
 
-from functions.theme.theme_logic import get_current_theme_colors
+from modules.constants import get_theme_primary
 from modules.constants import get_theme_primary
 
 
@@ -73,8 +73,7 @@ class DetailPanel:
 
     def render(self, width):
         """Renders the panel content."""
-        colors = get_current_theme_colors()
-        primary_hex = colors["primary"]
+        primary_hex = get_theme_primary()
 
         with self.lock:
             uptime = self.sys_uptime

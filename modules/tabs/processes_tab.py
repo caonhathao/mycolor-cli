@@ -12,7 +12,7 @@ from rich.console import Console
 
 from functions.theme.theme_logic import get_current_theme_colors
 from .base_tab import BaseTab
-from ..constants import REFRESH_INTERVAL, PROCESS_LIMIT, get_theme_primary, get_theme_secondary, get_theme_color, THEME_COLORS
+from ..constants import REFRESH_INTERVAL, PROCESS_LIMIT, get_theme_primary, get_theme_secondary, get_theme_color, THEME_COLORS, get_colors_dict
 
 PROCESS_UPDATE_INTERVAL: float = 0.5
 UI_OFFSET = 5
@@ -50,7 +50,7 @@ def truncate_text(text: str, width: int) -> str:
 
 def _load_config() -> Dict[str, Any]:
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    config_path = os.path.join(base_dir, "config", "config.json")
+    config_path = os.path.join(base_dir, "config", "settings.json")
     try:
         if os.path.exists(config_path):
             with open(config_path, "r", encoding="utf-8") as f:
@@ -180,7 +180,7 @@ class ProcessesTab(BaseTab):
         visible_rows = self.visible_rows
         total_count = len(current_processes)
 
-        colors = get_current_theme_colors()
+        colors = get_colors_dict()
         w = COL_WIDTHS
 
         _ANSI_BUFFER.seek(0)
@@ -224,7 +224,7 @@ class ProcessesTab(BaseTab):
         if process_hash == self._cached_process_hash and self._cached_content is not None:
             return self._cached_content
 
-        colors = get_current_theme_colors()
+        colors = get_colors_dict()
         w = COL_WIDTHS
 
         _ANSI_BUFFER.seek(0)

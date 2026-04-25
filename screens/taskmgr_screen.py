@@ -9,8 +9,11 @@ import json as json_lib
 
 from prompt_toolkit.formatted_text import ANSI
 
-from functions.theme.theme_logic import _get_config_path
-from modules.constants import get_theme_primary, get_theme_color, get_colors_dict, THEME_COLORS
+from functions.theme.theme_logic import _get_settings_path
+from modules.constants import (
+    get_settings, PROCESS_UPDATE_INTERVAL, PROCESS_LIMIT, EXCLUDE_SYSTEM_APPS,
+    get_theme_primary, get_theme_color, get_colors_dict, THEME_COLORS
+)
 from modules.panels.detail_panel import DetailPanel
 from modules.tabs import ProcessesTab, PerformanceTab, StartupTab
 
@@ -29,15 +32,14 @@ def _write_log(filename, message):
 
 
 def _load_taskmgr_config():
-    try:
-        from functions.theme.theme_logic import _get_config_path
-        config_path = _get_config_path()
-        if os.path.exists(config_path):
-            with open(config_path, "r", encoding="utf-8") as f:
-                return json_lib.load(f)
-    except Exception:
-        pass
-    return {"process_update_interval": 3.0, "taskmgr": {"process_limit": 20, "exclude_system_apps": True}}
+    from modules.constants import PROCESS_UPDATE_INTERVAL, PROCESS_LIMIT, EXCLUDE_SYSTEM_APPS
+    return {
+        "process_update_interval": PROCESS_UPDATE_INTERVAL,
+        "taskmgr": {
+            "process_limit": PROCESS_LIMIT,
+            "exclude_system_apps": EXCLUDE_SYSTEM_APPS
+        }
+    }
 
 
 _taskmgr_config = _load_taskmgr_config()
