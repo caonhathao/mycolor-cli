@@ -5,7 +5,6 @@ import sys
 from prompt_toolkit.styles import Style as PTStyle
 
 DEFAULT_CONFIG = {
-    "theme": "matrix",
     "window_settings": {
         "cols": 120,
         "lines": 30,
@@ -20,7 +19,10 @@ DEFAULT_CONFIG = {
     },
     "process_update_interval": 3.0,
     "net_max_speed_mbps": 100,
-    "last_export_path": ""
+    "last_export_path": "",
+    "customs": {
+        "theme": "matrix",
+    }
 }
 
 THEMES = {

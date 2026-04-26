@@ -2,7 +2,6 @@ from prompt_toolkit.filters import Condition
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout.containers import (
     ConditionalContainer,
-    DynamicContainer,
     Float,
     FloatContainer,
     HSplit,
@@ -14,10 +13,6 @@ from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.layout.dimension import Dimension
 
 from modules.constants import get_theme_primary, THEME_COLORS
-
-TAB_CUSTOM = 0
-TAB_SHORTCUTS = 1
-TAB_COMMANDS = 2
 
 _current_interface = None
 

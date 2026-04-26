@@ -17,13 +17,6 @@ _ANSI_CONSOLE = Console(file=_ANSI_BUFFER, force_terminal=True, width=120, color
 
 EDIT_MODE_COLOR = "#FFFF00"
 
-COL_WIDTHS = {
-    "key": 20,
-    "value": 25,
-    "desc": 30,
-}
-
-THEME_OPTIONS = get_available_themes()
 CURSOR_OPTIONS = ["block", "underline", "bar"]
 LOGO_OPTIONS = ["gradient", "minimal", "ascii"]
 

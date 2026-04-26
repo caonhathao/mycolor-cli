@@ -7,7 +7,6 @@ _SETTINGS_LOADED = False
 
 
 DEFAULT_SETTINGS = {
-    "theme": "matrix",
     "window_settings": {
         "cols": 120,
         "lines": 30,
