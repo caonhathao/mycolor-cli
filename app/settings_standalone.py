@@ -87,53 +87,86 @@ async def main_settings():
         console.print("[red]Failed to initialize settings interface.[/red]")
         return
 
-    @kb.add("q", eager=True)
     @kb.add("escape", eager=True)
-    def quit_app(event):
-        interface.running = False
-        event.app.exit()
+    def handle_escape(event):
+        if interface.popup_mode:
+            interface.popup_mode = False
+            interface.edit_key = None
+            event.app.invalidate()
+        elif interface.edit_mode:
+            interface.cancel_edit()
+            event.app.invalidate()
+        elif interface.listening_mode:
+            interface.listening_mode = False
+            event.app.invalidate()
+        else:
+            interface.running = False
+            event.app.exit()
+
+    @kb.add("q", eager=True)
+    def quit_only(event):
+        if not (interface.popup_mode or interface.edit_mode or interface.listening_mode):
+            interface.running = False
+            event.app.exit()
 
     @kb.add("left")
     def prev_tab(event):
-        if interface.edit_mode:
-            interface.cancel_edit()
+        if interface.edit_mode or interface.popup_mode or interface.listening_mode:
+            interface.cancel_popup()
         else:
             interface.switch_tab(-1)
             event.app.invalidate()
 
     @kb.add("right")
     def next_tab(event):
-        if interface.edit_mode:
-            interface.cancel_edit()
+        if interface.edit_mode or interface.popup_mode or interface.listening_mode:
+            interface.cancel_popup()
         else:
             interface.switch_tab(1)
             event.app.invalidate()
 
     @kb.add("up")
     def move_up(event):
-        if not interface.edit_mode:
+        if interface.popup_mode:
+            interface.move_selection(-1)
+            event.app.invalidate()
+        elif not interface.edit_mode and not interface.listening_mode:
             interface.move_selection(-1)
             event.app.invalidate()
 
     @kb.add("down")
     def move_down(event):
-        if not interface.edit_mode:
+        if interface.popup_mode:
+            interface.move_selection(1)
+            event.app.invalidate()
+        elif not interface.edit_mode and not interface.listening_mode:
             interface.move_selection(1)
             event.app.invalidate()
 
     @kb.add("enter")
     def handle_enter(event):
-        if interface.edit_mode:
+        if interface.popup_mode:
+            interface.confirm_popup()
+            event.app.invalidate()
+        elif interface.edit_mode:
             interface.confirm_edit()
             event.app.invalidate()
+        elif interface.listening_mode:
+            pass
         else:
-            interface.enter_edit_mode()
+            interface.handle_enter()
             event.app.invalidate()
 
     @kb.add("backspace")
     def handle_backspace(event):
         if interface.edit_mode:
             interface.backspace_edit_value()
+            event.app.invalidate()
+
+    @kb.add("delete")
+    def handle_delete(event):
+        if not interface.popup_mode and not interface.listening_mode:
+            interface.handle_delete()
             event.app.invalidate()
 
     @kb.add("c-s")
@@ -166,39 +199,50 @@ async def main_settings():
 
     @kb.add(Keys.Up)
     def handle_up(event):
-        if not interface.edit_mode:
+        if interface.popup_mode:
+            interface.move_selection(-1)
+            event.app.invalidate()
+        elif not interface.edit_mode and not interface.listening_mode:
             interface.move_selection(-1)
             event.app.invalidate()
 
     @kb.add(Keys.Down)
     def handle_down(event):
-        if not interface.edit_mode:
+        if interface.popup_mode:
+            interface.move_selection(1)
+            event.app.invalidate()
+        elif not interface.edit_mode and not interface.listening_mode:
             interface.move_selection(1)
             event.app.invalidate()
 
     @kb.add(Keys.Left)
     def handle_left(event):
-        if interface.edit_mode:
-            interface.cancel_edit()
+        if interface.edit_mode or interface.popup_mode or interface.listening_mode:
+            interface.cancel_popup()
         else:
             interface.switch_tab(-1)
             event.app.invalidate()
 
     @kb.add(Keys.Right)
     def handle_right(event):
-        if interface.edit_mode:
-            interface.cancel_edit()
+        if interface.edit_mode or interface.popup_mode or interface.listening_mode:
+            interface.cancel_popup()
         else:
             interface.switch_tab(1)
             event.app.invalidate()
 
     @kb.add(Keys.Enter)
     def handle_enter_key(event):
-        if interface.edit_mode:
+        if interface.popup_mode:
+            interface.confirm_popup()
+            event.app.invalidate()
+        elif interface.edit_mode:
             interface.confirm_edit()
             event.app.invalidate()
+        elif interface.listening_mode:
+            pass
         else:
-            interface.enter_edit_mode()
+            interface.handle_enter()
             event.app.invalidate()
 
     @kb.add(Keys.Backspace)
@@ -207,14 +251,11 @@ async def main_settings():
             interface.backspace_edit_value()
             event.app.invalidate()
 
-    @kb.add(Keys.Escape)
-    def handle_escape(event):
-        if interface.edit_mode:
-            interface.cancel_edit()
+    @kb.add(Keys.Delete)
+    def handle_delete_key(event):
+        if not interface.popup_mode and not interface.listening_mode:
+            interface.handle_delete()
             event.app.invalidate()
-        else:
-            interface.running = False
-            event.app.exit()
 
     application.key_bindings = kb
 

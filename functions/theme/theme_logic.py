@@ -307,9 +307,13 @@ def get_app_style():
             "sep": f"bg:{current_theme['background']} fg:#444444",
             "pc": f"bg:{current_theme['background']} fg:#666666 italic",
             "footer-pad": f"bg:{current_theme['background']}",
+            "footer-divider": f"fg:#444444",
             "completion-menu": f"bg:{suggestion_bg}",
             "completion-menu.completion": f"bg:{suggestion_bg} fg:{primary_hex}",
             "completion-menu.completion.current": f"bg:{primary_hex} fg:#000000",
             "scrollbar": f"bg:{current_theme['background']}",
+            "popup-menu": f"bg:{suggestion_bg} fg:{primary_hex}",
+            "popup-item": f"fg:#BBBBBB",
+            "popup-selected": f"bg:{primary_hex} fg:#000000 bold",
         }
     )

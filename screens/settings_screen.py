@@ -9,7 +9,7 @@ from prompt_toolkit.formatted_text import ANSI, HTML
 from rich.console import Console
 
 from modules.constants import (
-    get_theme_primary, get_theme_color, THEME_COLORS, get_settings, SETTINGS_PATH, get_colors_dict, ROOT_DIR
+    get_theme_primary, get_theme_color, THEME_COLORS, get_settings, SETTINGS_PATH, get_colors_dict, ROOT_DIR, get_available_themes
 )
 
 _ANSI_BUFFER = io.StringIO()
@@ -22,6 +22,10 @@ COL_WIDTHS = {
     "value": 25,
     "desc": 30,
 }
+
+THEME_OPTIONS = get_available_themes()
+CURSOR_OPTIONS = ["block", "underline", "bar"]
+LOGO_OPTIONS = ["gradient", "minimal", "ascii"]
 
 
 def _load_settings():
@@ -104,6 +108,20 @@ class SettingsInterface:
         self.commands_selected = 0
         self.commands_scroll_offset = 0
 
+        self.popup_mode = False
+        self.popup_options = get_available_themes()
+        self.popup_selected = 0
+        self.popup_title = ""
+
+        self.listening_mode = False
+        self.pending_shortcut_key = None
+        self.pending_shortcut_action = ""
+
+    @property
+    def popup_height(self):
+        count = len(self.popup_options)
+        return count if count > 0 else 1
+
     def _ensure_safe_command(self, cmd):
         if not cmd:
             return ""
@@ -115,7 +133,12 @@ class SettingsInterface:
         primary_hex = get_theme_primary()
         header_text = get_theme_color("header_text", THEME_COLORS["header_text"])
         hostname = socket.gethostname()
-        return [(f"bg:{primary_hex} fg:{header_text} bold", f" SETTINGS MANAGER - {hostname} ")]
+        mode_suffix = ""
+        if self.popup_mode:
+            mode_suffix = " - SELECT"
+        elif self.listening_mode:
+            mode_suffix = " - LISTENING"
+        return [(f"bg:{primary_hex} fg:{header_text} bold", f" SETTINGS MANAGER - {hostname}{mode_suffix} ")]
 
     def get_content(self):
         _ANSI_BUFFER.seek(0)
@@ -140,6 +163,7 @@ class SettingsInterface:
         suggestion_bg = colors.get("suggestion_bg", "#21262d")
         table_text = colors.get("table_text", "#BBBBBB")
         accent = colors.get("accent", "#00FF41")
+        edit_bg = "#3B3F41"
 
         KEY_COL = 18
         VAL_COL = 20
@@ -202,6 +226,14 @@ class SettingsInterface:
             else:
                 _ANSI_CONSOLE.print(row)
 
+        add_row = " < New Shortcut > "
+        is_add_selected = (self.shortcuts_selected == len(items))
+        row = f"[bold #00FF41]{add_row:<{KEY_COL + ACTION_COL + DESC_COL}}[/]"
+        if is_add_selected:
+            _ANSI_CONSOLE.print(f"[on {suggestion_bg}]{row}[/on {suggestion_bg}]")
+        else:
+            _ANSI_CONSOLE.print(row)
+
     def _render_commands(self, r, g, b, colors):
         primary_hex = colors["primary"]
         suggestion_bg = colors.get("suggestion_bg", "#21262d")
@@ -224,6 +256,22 @@ class SettingsInterface:
             else:
                 _ANSI_CONSOLE.print(row)
 
+        add_row = " < Add New Command > "
+        is_add_selected = (self.commands_selected == len(items))
+        row = f"[bold #00FF41]{add_row:<{ALIAS_COL + CMD_COL}}[/]"
+        if is_add_selected:
+            _ANSI_CONSOLE.print(f"[on {suggestion_bg}]{row}[/on {suggestion_bg}]")
+        else:
+            _ANSI_CONSOLE.print(row)
+
+    def get_popup_content(self):
+        fragments = []
+        for i, option in enumerate(self.popup_options):
+            style = "class:popup-selected" if i == self.popup_selected else "class:popup-item"
+            fragments.append((style, f" {option} ".ljust(20)))
+            fragments.append(("", "\n"))
+        return fragments
+
     def get_tabs(self):
         primary_hex = get_theme_primary()
         tab_names = ["Customs", "Shortcuts", "Commands"]
@@ -238,17 +286,36 @@ class SettingsInterface:
         return HTML('  '.join(parts))
 
     def get_hints(self):
-        return HTML(
-            '<span color="#00FF41">[Left/Right]</span> Switch Tabs  |  '
-            '<span color="#00FF41">[Up/Down]</span> Navigate  |  '
-            '<span color="#00FF41">[Enter]</span> Edit  |  '
-            '<span color="#00FF41">[Ctrl+S]</span> Save  |  '
-            '<span color="#00FF41">[Q]</span> Quit'
-        )
+        if self.popup_mode:
+            return HTML(
+                '<span color="#00FF41">[Up/Down]</span> Navigate  |  '
+                '<span color="#00FF41">[Enter]</span> Select  |  '
+                '<span color="#00FF41">[Esc/Q]</span> Cancel'
+            )
+        elif self.listening_mode:
+            return HTML(
+                '<span color="#FFFF00">Listening...</span> Press key combo  |  '
+                '<span color="#00FF41">[Esc/Q]</span> Cancel'
+            )
+        elif self.edit_mode:
+            return HTML(
+                '<span color="#00FF41">[Up/Down]</span> Navigate  |  '
+                '<span color="#00FF41">[Enter]</span> Edit  |  '
+                '<span color="#00FF41">[Del]</span> Delete  |  '
+                '<span color="#00FF41">[Esc/Q]</span> Cancel'
+            )
+        else:
+            return HTML(
+                '<span color="#00FF41">[Left/Right]</span> Switch Tabs  |  '
+                '<span color="#00FF41">[Up/Down]</span> Navigate  |  '
+                '<span color="#00FF41">[Enter]</span> Edit  |  '
+                '<span color="#00FF41">[Del]</span> Delete  |  '
+                '<span color="#00FF41">[Q]</span> Quit'
+            )
 
     def get_system_info(self):
-        if self.edit_mode:
-            return HTML(f'<span color="#FFFF00">EDIT: {self.edit_value}</span>')
+        if self.edit_mode or self.popup_mode or self.listening_mode:
+            return HTML('<span color="#FFFF00">EDIT MODE</span>')
         elif self.pending_changes:
             return HTML(f'<span color="#FF8800">{len(self.pending_changes)} changes</span>')
         else:
@@ -256,6 +323,10 @@ class SettingsInterface:
             return HTML(f'<span color="#00FF41">{ROOT_DIR}</span> <span color="#00FF41">|</span> <span color="#00FFFF">{hostname}</span> <span color="#00FF41">|</span> <span color="#00FF41">v0.0.1</span>')
 
     def switch_tab(self, direction):
+        if self.popup_mode or self.listening_mode:
+            self.cancel_popup()
+            return
+            
         old_tab = self.active_tab
         self.active_tab = (self.active_tab + direction) % 3
         
@@ -271,6 +342,10 @@ class SettingsInterface:
         self.edit_mode = False
         self.edit_key = None
         self.edit_value = ""
+        self.popup_mode = False
+        self.listening_mode = False
+        self.popup_selected = 0
+        self.popup_options = get_available_themes()
         
         if self.active_tab == self.TAB_CUSTOM:
             self.customs_selected = 0
@@ -281,6 +356,12 @@ class SettingsInterface:
             self.commands_scroll_offset = 0
 
     def move_selection(self, direction):
+        if self.popup_mode:
+            if self.popup_options:
+                self.popup_selected = (self.popup_selected + direction) % len(self.popup_options)
+            self._data_changed = True
+            return
+
         if self.edit_mode:
             return
 
@@ -295,10 +376,10 @@ class SettingsInterface:
             max_idx = len(customs_items) - 1
             self.customs_selected = max(0, min(max_idx, self.customs_selected + direction))
         elif self.active_tab == self.TAB_SHORTCUTS:
-            max_idx = len(self.shortcuts_items) - 1
+            max_idx = len(self.shortcuts_items)
             self.shortcuts_selected = max(0, min(max_idx, self.shortcuts_selected + direction))
         elif self.active_tab == self.TAB_COMMANDS:
-            max_idx = len(self.commands_items) - 1
+            max_idx = len(self.commands_items)
             self.commands_selected = max(0, min(max_idx, self.commands_selected + direction))
             self._update_commands_scroll()
 
@@ -311,23 +392,149 @@ class SettingsInterface:
         elif self.commands_selected >= self.commands_scroll_offset + visible_height:
             self.commands_scroll_offset = self.commands_selected - visible_height + 1
 
-    def enter_edit_mode(self):
-        if self.active_tab == self.TAB_SHORTCUTS and self.shortcuts_items:
-            idx = self.shortcuts_selected
-            key = self.shortcuts_items[idx][0]
-            current = self.shortcuts_items[idx][1]
-            self.edit_mode = True
-            self.edit_key = ("shortcuts", idx)
-            self.edit_value = current
-        elif self.active_tab == self.TAB_COMMANDS and self.commands_items:
-            idx = self.commands_selected
-            key = self.commands_items[idx][0]
-            current = self.commands_items[idx][1]
-            self.edit_mode = True
-            self.edit_key = ("commands", idx)
-            self.edit_value = current
+    def handle_enter(self):
+        if self.popup_mode:
+            self.confirm_popup()
+            return
 
+        if self.listening_mode:
+            return
+
+        customs = self._settings.get("customs", {})
+        
+        if self.active_tab == self.TAB_CUSTOM:
+            customs_keys = ["theme", "logo_style", "show_tips", "show_logo_shadow", "cursor_style"]
+            key = customs_keys[self.customs_selected]
+            
+            if key == "theme":
+                self.popup_mode = True
+                raw_list = get_available_themes()
+                self.popup_options = raw_list
+                self.popup_selected = raw_list.index(customs.get("theme", "matrix")) if customs.get("theme", "matrix") in raw_list else 0
+                self.popup_title = "SELECT THEME"
+                self.edit_key = ("custom", "theme")
+            elif key == "cursor_style":
+                self.popup_mode = True
+                self.popup_options = CURSOR_OPTIONS.copy()
+                self.popup_selected = self.popup_options.index(customs.get("cursor_style", "block"))
+                self.popup_title = "SELECT CURSOR"
+                self.edit_key = ("custom", "cursor_style")
+            elif key == "logo_style":
+                self.popup_mode = True
+                self.popup_options = LOGO_OPTIONS.copy()
+                self.popup_selected = self.popup_options.index(customs.get("logo_style", "gradient"))
+                self.popup_title = "SELECT LOGO STYLE"
+                self.edit_key = ("custom", "logo_style")
+            elif key == "show_tips":
+                customs["show_tips"] = not customs.get("show_tips", True)
+                self._settings["customs"] = customs
+                self.save_all()
+            elif key == "show_logo_shadow":
+                customs["show_logo_shadow"] = not customs.get("show_logo_shadow", True)
+                self._settings["customs"] = customs
+                self.save_all()
+            
+            self._data_changed = True
+
+        elif self.active_tab == self.TAB_SHORTCUTS:
+            if self.shortcuts_selected == len(self.shortcuts_items):
+                self.listening_mode = True
+                self.pending_shortcut_key = ""
+                self.pending_shortcut_action = ""
+                self._data_changed = True
+            elif self.shortcuts_items:
+                idx = self.shortcuts_selected
+                key = self.shortcuts_items[idx][0]
+                current = self.shortcuts_items[idx][1]
+                self.edit_mode = True
+                self.edit_key = ("shortcuts", idx)
+                self.edit_value = current
+                self._data_changed = True
+
+        elif self.active_tab == self.TAB_COMMANDS:
+            if self.commands_selected == len(self.commands_items):
+                self.popup_mode = True
+                self.popup_options = []
+                self.popup_title = "ADD NEW COMMAND"
+                self.edit_key = ("command", "add")
+                self._data_changed = True
+            elif self.commands_items:
+                idx = self.commands_selected
+                key = self.commands_items[idx][0]
+                current = self.commands_items[idx][1]
+                self.edit_mode = True
+                self.edit_key = ("commands", idx)
+                self.edit_value = current
+                self._data_changed = True
+
+    def handle_delete(self):
+        if self.popup_mode or self.listening_mode:
+            self.cancel_popup()
+            return
+
+        if self.active_tab == self.TAB_SHORTCUTS:
+            if self.shortcuts_items and self.shortcuts_selected < len(self.shortcuts_items):
+                idx = self.shortcuts_selected
+                key = self.shortcuts_items[idx][0]
+                del self._settings["shortcuts"][key]
+                self.shortcuts_items = list(self._settings["shortcuts"].items())
+                self.shortcuts_selected = min(self.shortcuts_selected, len(self.shortcuts_items) - 1)
+                self.save_all()
+                self._data_changed = True
+
+        elif self.active_tab == self.TAB_COMMANDS:
+            if self.commands_items and self.commands_selected < len(self.commands_items):
+                idx = self.commands_selected
+                key = self.commands_items[idx][0]
+                del self._settings["commands"][key]
+                self.commands_items = list(self._settings["commands"].items())
+                self.commands_selected = min(self.commands_selected, len(self.commands_items) - 1)
+                self.save_all()
+                self._data_changed = True
+
+    def confirm_popup(self):
+        if not self.edit_key:
+            return
+
+        category, key = self.edit_key
+
+        if category == "custom":
+            self._settings["customs"][key] = self.popup_options[self.popup_selected]
+            self.save_all()
+        elif category == "command":
+            if key == "add":
+                alias = "new_alias"
+                cmd = "new_command"
+                self._settings["commands"][alias] = cmd
+                self.commands_items = list(self._settings["commands"].items())
+                self.save_all()
+
+        self.cancel_popup()
+
+    def cancel_popup(self):
+        self.popup_mode = False
+        self.listening_mode = False
+        self.popup_options = []
+        self.popup_selected = 0
+        self.edit_key = None
         self._data_changed = True
+
+    def capture_key_combo(self, key_name):
+        if self.listening_mode:
+            self.pending_shortcut_key = key_name
+            self.listening_mode = False
+            
+            if self.pending_shortcut_key in self._settings.get("shortcuts", {}):
+                self.listening_mode = False
+                self._data_changed = True
+                return False
+            
+            self._settings["shortcuts"][self.pending_shortcut_key] = "custom_action"
+            self.shortcuts_items = list(self._settings["shortcuts"].items())
+            self.save_all()
+            self._data_changed = True
+            return True
+        return False
 
     def update_edit_value(self, char):
         self.edit_value += char
@@ -340,13 +547,15 @@ class SettingsInterface:
 
     def confirm_edit(self):
         if self.edit_mode and self.edit_key:
-            category, idx = self.edit_key
+            category, key_or_idx = self.edit_key
 
-            if category == "shortcuts":
+            if category == "shortcuts" and isinstance(key_or_idx, int):
+                idx = key_or_idx
                 key = self.shortcuts_items[idx][0]
                 self._settings["shortcuts"][key] = self._ensure_safe_command(self.edit_value)
                 self.shortcuts_items = list(self._settings["shortcuts"].items())
-            elif category == "commands":
+            elif category == "commands" and isinstance(key_or_idx, int):
+                idx = key_or_idx
                 key = self.commands_items[idx][0]
                 self._settings["commands"][key] = self.edit_value
                 self.commands_items = list(self._settings["commands"].items())
@@ -355,6 +564,7 @@ class SettingsInterface:
             self.edit_key = None
             self.edit_value = ""
             self.pending_changes[category] = True
+            self.save_all()
 
         self._data_changed = True
 

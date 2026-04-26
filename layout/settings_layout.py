@@ -3,6 +3,8 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout.containers import (
     ConditionalContainer,
     DynamicContainer,
+    Float,
+    FloatContainer,
     HSplit,
     VSplit,
     Window,
@@ -93,8 +95,8 @@ def build_settings_layout(interface):
         Window(width=1),
     ])
 
-    # Root Container
-    root_container = HSplit(
+    # Main HSplit container
+    body = HSplit(
         [
             header_window,
             middle_area,
@@ -105,6 +107,39 @@ def build_settings_layout(interface):
         style="class:app-background",
         width=Dimension(weight=1),
         height=Dimension(weight=1),
+    )
+
+    # Floating Pop-up Menu
+    popup_height = len(interface.popup_options) if interface.popup_options else 5
+    popup_window = Window(
+        content=FormattedTextControl(interface.get_popup_content, focusable=True),
+        style="bg:#21262d",
+        width=Dimension(min=1, preferred=20),
+        height=Dimension(min=1, preferred=5),
+    )
+
+    @Condition
+    def show_popup():
+        return interface.popup_mode
+
+    # Wrap in ConditionalContainer for filter support
+    popup_container = ConditionalContainer(
+        content=popup_window,
+        filter=show_popup,
+    )
+
+    popup_float = Float(
+        content=popup_container,
+        xcursor=False,
+        ycursor=True,
+        left=22,
+        top=0,
+    )
+
+    # Root FloatContainer wrapping HSplit with floats
+    root_container = FloatContainer(
+        content=body,
+        floats=[popup_float],
     )
 
     return root_container, content_window

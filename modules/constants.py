@@ -237,6 +237,11 @@ def get_colors_dict():
     from functions.theme.theme_logic import get_current_theme_colors
     return get_current_theme_colors()
 
+def get_available_themes():
+    from functions.theme.theme_logic import THEMES
+    return list(THEMES.keys())
+
+
 THEME_PRIMARY = get_theme_primary()
 THEME_SECONDARY = get_theme_secondary()
 THEME_PRIMARY_RGB = get_theme_primary_rgb()
