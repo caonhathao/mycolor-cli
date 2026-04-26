@@ -208,13 +208,24 @@ def set_theme(theme_name, save=True):
     return False
 
 
+def apply_theme(theme_name):
+    """Apply theme globally without saving - syncs UI without file write."""
+    global current_theme_name, current_theme
+    if theme_name in THEMES:
+        current_theme_name = theme_name
+        current_theme = THEMES[theme_name]
+        return True
+    return False
+
+
 def load_config():
     """Loads theme from settings.json."""
     try:
         config_path = _get_settings_path()
         with open(config_path, "r") as f:
             config = json.load(f)
-            theme_name = config.get("theme")
+            customs = config.get("customs", {})
+            theme_name = customs.get("theme")
             if theme_name:
                 set_theme(theme_name, save=False)
     except (IOError, json.JSONDecodeError):
@@ -231,7 +242,9 @@ def save_config():
         except (FileNotFoundError, json.JSONDecodeError):
             config = {}
 
-        config["theme"] = current_theme_name
+        if "customs" not in config:
+            config["customs"] = {}
+        config["customs"]["theme"] = current_theme_name
 
         with open(config_path, "w") as f:
             json.dump(config, f, indent=4)

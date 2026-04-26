@@ -1,5 +1,4 @@
 {
-    "theme": "matrix",
     "window_settings": {
         "cols": 120,
         "lines": 30,
@@ -24,7 +23,7 @@
         "exclude_system_apps": true
     },
     "customs": {
-        "theme": "cyber",
+        "theme": "darcula",
         "logo_style": "gradient",
         "show_tips": true,
         "show_logo_shadow": true,

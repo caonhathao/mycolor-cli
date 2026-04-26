@@ -110,12 +110,12 @@ def build_settings_layout(interface):
     )
 
     # Floating Pop-up Menu
-    popup_height = len(interface.popup_options) if interface.popup_options else 5
+    popup_height = interface.popup_height
     popup_window = Window(
         content=FormattedTextControl(interface.get_popup_content, focusable=True),
         style="bg:#21262d",
         width=Dimension(min=1, preferred=20),
-        height=Dimension(min=1, preferred=5),
+        height=Dimension(min=1, preferred=popup_height),
     )
 
     @Condition

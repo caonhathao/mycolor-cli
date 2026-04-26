@@ -144,7 +144,9 @@ async def main_settings():
     @kb.add("enter")
     def handle_enter(event):
         if interface.popup_mode:
-            interface.confirm_popup()
+            theme_changed = interface.confirm_popup()
+            if theme_changed:
+                event.app.style = get_app_style()
             event.app.invalidate()
         elif interface.edit_mode:
             interface.confirm_edit()

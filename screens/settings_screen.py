@@ -493,13 +493,18 @@ class SettingsInterface:
                 self._data_changed = True
 
     def confirm_popup(self):
+        theme_changed = False
         if not self.edit_key:
-            return
+            return theme_changed
 
         category, key = self.edit_key
 
         if category == "custom":
             self._settings["customs"][key] = self.popup_options[self.popup_selected]
+            if key == "theme":
+                from functions.theme.theme_logic import apply_theme
+                apply_theme(self._settings["customs"][key])
+                theme_changed = True
             self.save_all()
         elif category == "command":
             if key == "add":
@@ -510,6 +515,7 @@ class SettingsInterface:
                 self.save_all()
 
         self.cancel_popup()
+        return theme_changed
 
     def cancel_popup(self):
         self.popup_mode = False
