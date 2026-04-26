@@ -14,21 +14,13 @@ from modules.constants import (
     get_settings, PROCESS_UPDATE_INTERVAL, PROCESS_LIMIT, EXCLUDE_SYSTEM_APPS,
     get_theme_primary, get_theme_color, get_colors_dict, THEME_COLORS
 )
+from modules.logger import write_log, get_log_path, CrashLogger, get_worker_logger
 from modules.panels.detail_panel import DetailPanel
 from modules.tabs import ProcessesTab, PerformanceTab, StartupTab
 
 
-def _get_logs_dir():
-    return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
-
-def _write_log(filename, message):
-    try:
-        logs_dir = _get_logs_dir()
-        os.makedirs(logs_dir, exist_ok=True)
-        with open(os.path.join(logs_dir, filename), "a") as f:
-            f.write(message)
-    except Exception:
-        pass
+_taskmgr_logger = CrashLogger("taskmgr", "ui")
+worker_logger = get_worker_logger()
 
 
 def _load_taskmgr_config():
@@ -115,14 +107,16 @@ class TaskManagerInterface:
     def _background_worker(self):
         import traceback
         from time import monotonic
-        logs_dir = _get_logs_dir()
-        os.makedirs(logs_dir, exist_ok=True)
+        from modules.logger import get_worker_logger, _ensure_logs_dir
+        worker_logger = get_worker_logger()
+        logs_dir = _ensure_logs_dir()
+        ui_log_path = os.path.join(logs_dir, "taskmgr-ui-pulse-debug.log")
         
         while not self._stop_event.is_set():
             try:
                 if self.app.app_state.get("current_screen") == "taskmgr":
                     mode = "w" if self._first_pulse else "a"
-                    with open(os.path.join(logs_dir, "pulse.log"), mode) as f:
+                    with open(ui_log_path, mode) as f:
                         if self._first_pulse:
                             f.write(f"=== SESSION STARTED: {datetime.now()} | PID: {os.getpid()} ===\n")
                             self._first_pulse = False
@@ -139,12 +133,7 @@ class TaskManagerInterface:
                                 with self._data_lock:
                                     self._data_changed = True
             except Exception:
-                try:
-                    with open(os.path.join(logs_dir, "error_runtime.log"), "a") as f:
-                        f.write(f"[{monotonic():.3f}] _background_worker ERROR:\n")
-                        f.write(traceback.format_exc())
-                except Exception:
-                    pass
+                worker_logger.log_error("_background_worker", traceback.format_exc())
 
             self._stop_event.wait(REFRESH_INTERVAL)
 
@@ -208,7 +197,7 @@ class TaskManagerInterface:
                     with self._data_lock:
                         self._data_changed = False
 
-                _write_log("pulse.log", f"[{monotonic():.3f}] UI PULSE | tab:{self.active_tab} | screen:{self.app.app_state.get('current_screen')}\n")
+                _taskmgr_logger.write(f"UI PULSE | tab:{self.active_tab} | screen:{self.app.app_state.get('current_screen')}")
 
                 await asyncio.sleep(0.1)
         finally:
@@ -228,7 +217,7 @@ class TaskManagerInterface:
 
     def get_cpu(self):
         perf_tab = self.tabs[self.TAB_PERFORMANCE]
-        _write_log("ui_data_access.log", f"[{monotonic():.3f}] get_cpu() | monitor_id={id(perf_tab.cpu_monitor)} | last={perf_tab.cpu_monitor.last_value} | hist_len={len(perf_tab.cpu_monitor.history)}\n")
+        worker_logger.log_ui_access(f"get_cpu() | monitor_id={id(perf_tab.cpu_monitor)} | last={perf_tab.cpu_monitor.last_value} | hist_len={len(perf_tab.cpu_monitor.history)}")
         formatted = perf_tab.cpu_monitor.get_cached_formatted()
         if formatted:
             return formatted
@@ -236,7 +225,7 @@ class TaskManagerInterface:
 
     def get_ram(self):
         perf_tab = self.tabs[self.TAB_PERFORMANCE]
-        _write_log("ui_data_access.log", f"[{monotonic():.3f}] get_ram() | monitor_id={id(perf_tab.ram_monitor)} | last={perf_tab.ram_monitor.last_value} | hist_len={len(perf_tab.ram_monitor.history)}\n")
+        worker_logger.log_ui_access(f"get_ram() | monitor_id={id(perf_tab.ram_monitor)} | last={perf_tab.ram_monitor.last_value} | hist_len={len(perf_tab.ram_monitor.history)}")
         formatted = perf_tab.ram_monitor.get_cached_formatted()
         if formatted:
             return formatted
@@ -244,7 +233,7 @@ class TaskManagerInterface:
 
     def get_gpu(self):
         perf_tab = self.tabs[self.TAB_PERFORMANCE]
-        _write_log("ui_data_access.log", f"[{monotonic():.3f}] get_gpu() | monitor_id={id(perf_tab.gpu_monitor)} | last={perf_tab.gpu_monitor.last_value} | hist_len={len(perf_tab.gpu_monitor.history)}\n")
+        worker_logger.log_ui_access(f"get_gpu() | monitor_id={id(perf_tab.gpu_monitor)} | last={perf_tab.gpu_monitor.last_value} | hist_len={len(perf_tab.gpu_monitor.history)}")
         formatted = perf_tab.gpu_monitor.get_cached_formatted()
         if formatted:
             return formatted
@@ -252,7 +241,7 @@ class TaskManagerInterface:
 
     def get_network(self):
         perf_tab = self.tabs[self.TAB_PERFORMANCE]
-        _write_log("ui_data_access.log", f"[{monotonic():.3f}] get_net() | monitor_id={id(perf_tab.net_monitor)} | last={perf_tab.net_monitor.last_value} | hist_len={len(perf_tab.net_monitor.history)}\n")
+        worker_logger.log_ui_access(f"get_net() | monitor_id={id(perf_tab.net_monitor)} | last={perf_tab.net_monitor.last_value} | hist_len={len(perf_tab.net_monitor.history)}")
         formatted = perf_tab.net_monitor.get_cached_formatted()
         if formatted:
             return formatted

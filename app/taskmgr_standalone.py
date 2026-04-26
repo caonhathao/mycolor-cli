@@ -18,6 +18,10 @@ from rich.console import Console
 
 from functions.theme.theme_logic import ensure_config_exists, get_app_style, load_config
 from layout.taskmgr_layout import get_taskmgr_layout, get_current_taskmgr_interface
+from modules.logger import log_global_crash, CrashLogger
+
+
+_taskmgr_logger = CrashLogger("taskmgr", "standalone")
 
 
 def early_window_resize():
@@ -30,13 +34,7 @@ def early_window_resize():
 
 
 def _write_debug_log(message):
-    try:
-        os.makedirs("logs", exist_ok=True)
-        with open("logs/pulse.log", "w", encoding="utf-8") as f:
-            f.write(f"=== SESSION STARTED: {datetime.now()} | PID: {os.getpid()} ===\n")
-            f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}\n")
-    except Exception:
-        pass
+    _taskmgr_logger.write(message)
 
 
 early_window_resize()
@@ -115,7 +113,6 @@ if __name__ == "__main__":
         asyncio.run(main_taskmgr())
     except Exception:
         import traceback
-        os.makedirs("logs", exist_ok=True)
         crash_report = (
             f"=== TASK MANAGER CRASH REPORT ===\n"
             f"Time: {datetime.now()}\n"
@@ -124,5 +121,5 @@ if __name__ == "__main__":
             f"{traceback.format_exc()}\n"
             f"{'=' * 40}\n\n"
         )
-        with open("logs/taskmgr_crash.log", "w", encoding="utf-8") as f:
-            f.write(crash_report)
+        _taskmgr_logger.log_crash(crash_report)
+        log_global_crash(crash_report)

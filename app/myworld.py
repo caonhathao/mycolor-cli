@@ -21,6 +21,7 @@ from rich.console import Console
 
 from components.input_area import get_input_key_bindings, get_input_text_area
 from functions.theme.theme_logic import ensure_config_exists, get_app_style, load_config
+from modules.logger import log_global_crash
 from screens.cmd_screen import get_cmd_screen_container
 from screens.intro_screen import get_intro_screen_container
 
@@ -172,17 +173,12 @@ if __name__ == "__main__":
         asyncio.run(main_app(mode=mode))
     except Exception:
         import traceback
-
-        os.makedirs("logs", exist_ok=True)
         crash_report = (
             f"Crash Report - {datetime.now()}\n"
             f"{'-' * 30}\n"
             f"{traceback.format_exc()}\n"
             f"{'=' * 30}\n\n"
         )
-
-        with open("logs/mw_crash.log", "w") as f:
-            f.write(crash_report)
-
+        log_global_crash(crash_report)
         print(crash_report, file=sys.stderr)
         input("Press Enter to close...")

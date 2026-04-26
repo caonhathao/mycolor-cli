@@ -21,11 +21,16 @@ E:\ProjectDev\cli\
 ├── config/              # Configuration files
 │   └── settings.json  # Customizations, shortcuts, commands
 │
-├── logs/               # Log files
-│   ├── mw_crash.log   # Main application crash reports
-│   ├── settings_debug.log # Settings UI debug logs
-│   ├── pulse.log     # Task Manager UI pulse logs
-│   └── [other log files]
+├── logs/               # Log files (centralized, naming: <test_object>-<test_component>-debug.log)
+│   ├── mw-crash-debug.log              # Main app crash reports
+│   ├── settings-debug-debug.log        # Settings UI debug logs  
+│   ├── taskmgr-ui-debug.log             # Task Manager UI logs
+│   ├── taskmgr-standalone-debug.log     # Task Manager standalone logs
+│   ├── performance-workers-lifecycle-debug.log  # Worker thread events
+│   ├── performance-rendering-debug.log           # Render/invalidation signals
+│   ├── performance-ui-access-debug.log            # UI data access patterns
+│   ├── performance-error-runtime-debug.log        # Runtime errors
+│   └── taskmgr-ui-pulse-debug.log      # Task Manager UI pulse logs
 │
 ├── components/           # UI widgets
 │   ├── __init__.py
@@ -117,12 +122,20 @@ E:\ProjectDev\cli\
 | `settings.json` | Customizations, keyboard shortcuts, command aliases |
 
 ### Logs (logs/)
+Centralized logging using `modules/logger.py`. All logs follow naming convention:
+`<test_object>-<test_component>-debug.log`
+
 | File | Purpose |
 |------|---------|
-| `mw_crash.log` | Main application crash reports |
-| `settings_debug.log` | Settings UI debug logs |
-| `pulse.log` | Task Manager UI pulse logs |
-| Other logs | Worker lifecycle, render confirm, UI data access |
+| `mw-crash-debug.log` | Main application crash reports |
+| `settings-debug-debug.log` | Settings UI debug logs |
+| `taskmgr-ui-debug.log` | Task Manager UI logs |
+| `taskmgr-standalone-debug.log` | Task Manager standalone logs |
+| `performance-workers-lifecycle-debug.log` | Worker thread lifecycle events |
+| `performance-rendering-debug.log` | Render/invalidation signals |
+| `performance-ui-access-debug.log` | UI data access patterns |
+| `performance-error-runtime-debug.log` | Runtime errors from worker threads |
+| `taskmgr-ui-pulse-debug.log` | Task Manager UI pulse logs |
 
 ### Components (UI Widgets)
 Same as before - unchanged responsibility.

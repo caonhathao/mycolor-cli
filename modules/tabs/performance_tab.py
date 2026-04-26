@@ -10,41 +10,23 @@ from modules.monitors.cpu_monitor import CPUMonitor
 from modules.monitors.gpu_monitor import GPUMonitor
 from modules.monitors.net_monitor import NetMonitor
 from modules.monitors.ram_monitor import RAMMonitor
+from modules.logger import get_worker_logger
 
 REFRESH_INTERVAL = 0.5
 
-_BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-_LOG_DIR = os.path.join(_BASE_DIR, "logs")
-_WORKER_LOG_PATH = os.path.join(_LOG_DIR, "worker_lifecycle.log")
-_RENDER_LOG_PATH = os.path.join(_LOG_DIR, "render_confirm.log")
+_worker_logger = get_worker_logger()
 
 
 def _log_lifecycle(thread_name, message):
-    try:
-        os.makedirs(_LOG_DIR, exist_ok=True)
-        with open(_WORKER_LOG_PATH, "a", encoding="utf-8") as f:
-            f.write(f"[{time.time():.3f}] TID={threading.get_ident()} {thread_name}: {message}\n")
-            f.flush()
-    except Exception:
-        pass
+    _worker_logger.log_lifecycle(thread_name, f"{thread_name}: {message}")
 
 
 def _log_render(message):
-    try:
-        with open(_RENDER_LOG_PATH, "a", encoding="utf-8") as f:
-            f.write(f"[{time.time():.3f}] {message}\n")
-            f.flush()
-    except Exception:
-        pass
+    _worker_logger.log_render(message)
 
 
 def _log_debug(module_name, message):
-    try:
-        log_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "crash_debug.log")
-        with open(log_path, "a", encoding="utf-8") as f:
-            f.write(f"[{time.time():.3f}] {module_name}: {message}\n")
-    except Exception:
-        pass
+    _worker_logger.log_ui_access(f"{module_name}: {message}")
 
 
 class PerformanceTab(BaseTab):
@@ -135,12 +117,7 @@ class PerformanceTab(BaseTab):
                             self.ram_monitor.render(width, height)
                     self._try_invalidate()
                 except Exception:
-                    try:
-                        with open(os.path.join(_LOG_DIR, "error_runtime.log"), "a") as f:
-                            f.write(f"[{monotonic():.3f}] worker_cpu_ram ERROR:\n")
-                            f.write(traceback.format_exc())
-                    except Exception:
-                        pass
+                    _worker_logger.log_error("worker_cpu_ram", traceback.format_exc())
                 self._stop_event_cpu_ram.wait(interval)
             _log_lifecycle("CPU_RAM", "THREAD EXITED (loop ended)")
 
@@ -155,12 +132,7 @@ class PerformanceTab(BaseTab):
                             self.gpu_monitor.render(width, height)
                     self._try_invalidate()
                 except Exception:
-                    try:
-                        with open(os.path.join(_LOG_DIR, "error_runtime.log"), "a") as f:
-                            f.write(f"[{monotonic():.3f}] worker_gpu ERROR:\n")
-                            f.write(traceback.format_exc())
-                    except Exception:
-                        pass
+                    _worker_logger.log_error("worker_gpu", traceback.format_exc())
                 self._stop_event_gpu.wait(interval * 2)
             _log_lifecycle("GPU", "THREAD EXITED (loop ended)")
 
@@ -175,12 +147,7 @@ class PerformanceTab(BaseTab):
                             self.net_monitor.render(width, height)
                     self._try_invalidate()
                 except Exception:
-                    try:
-                        with open(os.path.join(_LOG_DIR, "error_runtime.log"), "a") as f:
-                            f.write(f"[{monotonic():.3f}] worker_net ERROR:\n")
-                            f.write(traceback.format_exc())
-                    except Exception:
-                        pass
+                    _worker_logger.log_error("worker_net", traceback.format_exc())
                 self._stop_event_net.wait(interval)
             _log_lifecycle("NET", "THREAD EXITED (loop ended)")
 

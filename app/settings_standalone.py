@@ -20,6 +20,10 @@ from rich.console import Console
 
 from functions.theme.theme_logic import ensure_config_exists, get_app_style, load_config
 from layout.settings_layout import build_settings_layout, get_settings_layout, get_current_settings_interface
+from modules.logger import log_global_crash, CrashLogger
+
+
+_settings_logger = CrashLogger("settings", "debug")
 
 
 def early_window_resize():
@@ -32,13 +36,7 @@ def early_window_resize():
 
 
 def _write_debug_log(message):
-    try:
-        os.makedirs("logs", exist_ok=True)
-        with open("logs/settings_debug.log", "w", encoding="utf-8") as f:
-            f.write(f"=== SESSION STARTED: {datetime.now()} | PID: {os.getpid()} ===\n")
-            f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}\n")
-    except Exception:
-        pass
+    _settings_logger.write(message)
 
 
 early_window_resize()
@@ -285,10 +283,7 @@ if __name__ == "__main__":
     except Exception:
         import traceback
         crash_report = traceback.format_exc()
-        _write_debug_log("CRASH:\n" + crash_report)
+        _settings_logger.log_exception(Exception(crash_report), "settings_standalone.py")
+        log_global_crash(crash_report)
 
-        os.makedirs("logs", exist_ok=True)
-        with open("logs/mw_crash.log", "w") as f:
-            f.write(crash_report)
-
-        print("Settings crashed. Check logs/settings_debug.log for details.")
+        print("Settings crashed. Check logs/settings-debug-debug.log for details.")

@@ -459,34 +459,104 @@ The following use singleton pattern:
 
 ## 6. Diagnostic Log Flow
 
-### 6.1 Log File Generation
+### 6.1 Centralized Logging System
+
+All logs are managed by `modules/logger.py` and stored in the `logs/` directory.
 
 ```
-Application startup
-    │
-    ├── mw_crash.log        → Critical crashes (main entry)
-    ├── crash_debug.log     → Runtime debug info
-    │
-    └── Task Manager subprocess
-        ├── worker_lifecycle.log    → Worker thread events
-        ├── render_confirm.log      → Render/invalidation signals
-        └── ui_data_access.log   → UI data access patterns
+modules/logger.py
+    ├── _ensure_logs_dir()        # Creates logs/ directory if missing
+    ├── get_log_path(obj, comp)   # Returns logs/<obj>-<comp>-debug.log
+    ├── write_log(obj, comp, msg) # Write message to specific log
+    ├── log_crash(obj, comp, msg) # Write crash report to log
+    ├── CrashLogger class         # Per-module crash logger
+    │   └── test_object + test_component → unique log file
+    └── WorkerLogger class        # Worker thread logging
+        ├── log_lifecycle()       # Thread start/stop events
+        ├── log_render()          # Render/invalidation signals
+        ├── log_ui_access()       # UI data access patterns
+        └── log_error()           # Runtime errors
 ```
 
-### 6.2 Log Entry Examples
+### 6.2 Log Naming Convention
+
+Format: `<test_object>-<test_component>-debug.log`
+
+| test_object | test_component | Log File |
+|-------------|-----------------|----------|
+| `mw` | `crash` | `mw-crash-debug.log` |
+| `settings` | `debug` | `settings-debug-debug.log` |
+| `taskmgr` | `ui` | `taskmgr-ui-debug.log` |
+| `taskmgr` | `standalone` | `taskmgr-standalone-debug.log` |
+| `performance` | `workers-lifecycle` | `performance-workers-lifecycle-debug.log` |
+| `performance` | `rendering` | `performance-rendering-debug.log` |
+| `performance` | `ui-access` | `performance-ui-access-debug.log` |
+| `performance` | `error-runtime` | `performance-error-runtime-debug.log` |
+
+### 6.3 Usage Examples
 
 ```python
-# worker_lifecycle.log
-[1234567.890] TID=1234 CPU_RAM: THREAD STARTED
-[1234567.890] TID=1234 CPU_RAM: PULSE: event_set=False
-[1234567.890] TID=1234 CPU_RAM: FETCHED: CPU=45.3 | hist_len=45
-[1234568.390] TID=1234 CPU_RAM: THREAD EXITED (loop ended)
+# Basic logging
+from modules.logger import write_log
+write_log("settings", "theme-customs", "Theme selected: matrix")
 
-# render_confirm.log
-[1234567.890] RENDER_CHECK: _has_update=True, app_id=140000, screen=taskmgr, tab=0
-[1234567.890] INVALIDATE: signaling App 140000 (matches parent.app=True)
+# Crash logging
+from modules.logger import log_global_crash
+log_global_crash(crash_report)
+
+# Per-module logger
+from modules.logger import CrashLogger
+logger = CrashLogger("taskmgr", "ui")
+logger.write("Button clicked")
+logger.log_exception(exc, "handler")
+logger.log_crash(crash_report)
+
+# Worker thread logging
+from modules.logger import get_worker_logger
+worker_logger = get_worker_logger()
+worker_logger.log_lifecycle("CPU_RAM", "THREAD STARTED")
+worker_logger.log_render("RENDER: invalidating UI")
+worker_logger.log_error("worker_net", traceback_str)
+```
+
+### 6.4 Log Entry Examples
+
+```python
+# performance-workers-lifecycle-debug.log
+[20260426 10:30:15.123] CPU_RAM: THREAD STARTED | cpu_id=1400000000000
+[20260426 10:30:15.623] CPU_RAM: FETCHED: CPU=45.3 | hist_len=45
+[20260426 10:30:16.123] CPU_RAM: THREAD EXITED (loop ended)
+
+# performance-rendering-debug.log
+[20260426 10:30:15.200] RENDER_CHECK: _has_update=True, app_id=140000, screen=taskmgr, tab=1
+[20260426 10:30:15.200] INVALIDATE: signaling App 140000
+
+# performance-error-runtime-debug.log
+[20260426 10:30:20.500] worker_cpu_ram ERROR:
+Traceback (most recent call last):
+  ...
+```
+
+### 6.5 Mandatory Logging Flow for Future Development
+
+All new modules MUST use `modules.logger` for logging:
+1. Import: `from modules.logger import write_log, CrashLogger`
+2. Create logger instance with test_object and test_component
+3. Use naming convention: `<module>-<feature>-debug.log`
+
+```python
+from modules.logger import write_log, CrashLogger
+
+_mymodule_logger = CrashLogger("mymodule", "feature")
+
+def some_function():
+    _mymodule_logger.write("Function called")
+    try:
+        # ... logic
+    except Exception as e:
+        _mymodule_logger.log_exception(e, "some_function")
 ```
 
 ---
 
-*Generated: Flow Analysis (Updated: 2026-04-23)*
+*Generated: Flow Analysis (Updated: 2026-04-26)*
