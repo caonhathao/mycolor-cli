@@ -9,8 +9,8 @@ from prompt_toolkit.formatted_text import ANSI, HTML
 from rich.console import Console
 
 from core.config_manager import ConfigManager, get_manager
-from core.constants import get_theme_primary, get_theme_color, THEME_COLORS, get_colors_dict, ROOT_DIR
-from core.theme_engine import apply_theme
+from core.constants import ROOT_DIR
+from core.theme_engine import apply_theme, get_current_theme_colors
 from api.theme_api import get_available_themes
 
 _ANSI_BUFFER = io.StringIO()
@@ -77,8 +77,9 @@ class SettingsInterface:
         return cmd
 
     def get_header(self):
-        primary_hex = get_theme_primary()
-        header_text = get_theme_color("header_text", THEME_COLORS["header_text"])
+        colors = get_current_theme_colors()
+        primary_hex = colors.get("primary")
+        header_text = colors.get("header_text", "white")
         hostname = socket.gethostname()
         mode_suffix = ""
         if self.popup_mode:
@@ -91,7 +92,7 @@ class SettingsInterface:
         _ANSI_BUFFER.seek(0)
         _ANSI_BUFFER.truncate(0)
         
-        colors = get_colors_dict()
+        colors = get_current_theme_colors()
         primary_hex = colors["primary"]
         r, g, b = int(primary_hex[1:3], 16), int(primary_hex[3:5], 16), int(primary_hex[5:7], 16)
 
@@ -109,7 +110,7 @@ class SettingsInterface:
         primary_hex = colors["primary"]
         suggestion_bg = colors.get("suggestion_bg", "#21262d")
         table_text = colors.get("table_text", "#BBBBBB")
-        accent = colors.get("accent", "#00FF41")
+        accent = colors.get("tab_accent", "#CC7832")
         edit_bg = "#3B3F41"
 
         KEY_COL = 18
@@ -145,7 +146,7 @@ class SettingsInterface:
         primary_hex = colors["primary"]
         suggestion_bg = colors.get("suggestion_bg", "#21262d")
         table_text = colors.get("table_text", "#BBBBBB")
-        accent = colors.get("accent", "#00FF41")
+        accent = colors.get("tab_accent", "#CC7832")
 
         KEY_COL = 20
         ACTION_COL = 30
@@ -175,7 +176,7 @@ class SettingsInterface:
 
         add_row = " < New Shortcut > "
         is_add_selected = (self.shortcuts_selected == len(items))
-        row = f"[bold #00FF41]{add_row:<{KEY_COL + ACTION_COL + DESC_COL}}[/]"
+        row = f"[bold {primary_hex}]{add_row:<{KEY_COL + ACTION_COL + DESC_COL}}[/]"
         if is_add_selected:
             _ANSI_CONSOLE.print(f"[on {suggestion_bg}]{row}[/on {suggestion_bg}]")
         else:
@@ -205,7 +206,7 @@ class SettingsInterface:
 
         add_row = " < Add New Command > "
         is_add_selected = (self.commands_selected == len(items))
-        row = f"[bold #00FF41]{add_row:<{ALIAS_COL + CMD_COL}}[/]"
+        row = f"[bold {primary_hex}]{add_row:<{ALIAS_COL + CMD_COL}}[/]"
         if is_add_selected:
             _ANSI_CONSOLE.print(f"[on {suggestion_bg}]{row}[/on {suggestion_bg}]")
         else:
@@ -220,7 +221,8 @@ class SettingsInterface:
         return fragments
 
     def get_tabs(self):
-        primary_hex = get_theme_primary()
+        colors = get_current_theme_colors()
+        primary_hex = colors.get("primary")
         tab_names = ["Customs", "Shortcuts", "Commands"]
         
         parts = []
@@ -233,41 +235,47 @@ class SettingsInterface:
         return HTML('  '.join(parts))
 
     def get_hints(self):
+        colors = get_current_theme_colors()
+        accent = colors.get("tab_accent", "#CC7832")
         if self.popup_mode:
             return HTML(
-                '<span color="#00FF41">[Up/Down]</span> Navigate  |  '
-                '<span color="#00FF41">[Enter]</span> Select  |  '
-                '<span color="#00FF41">[Esc/Q]</span> Cancel'
+                f'<span color="{accent}">[Up/Down]</span> Navigate  |  '
+                f'<span color="{accent}">[Enter]</span> Select  |  '
+                f'<span color="{accent}">[Esc/Q]</span> Cancel'
             )
         elif self.listening_mode:
             return HTML(
-                '<span color="#FFFF00">Listening...</span> Press key combo  |  '
-                '<span color="#00FF41">[Esc/Q]</span> Cancel'
+                f'<span color="#FFFF00">Listening...</span> Press key combo  |  '
+                f'<span color="{accent}">[Esc/Q]</span> Cancel'
             )
         elif self.edit_mode:
             return HTML(
-                '<span color="#00FF41">[Up/Down]</span> Navigate  |  '
-                '<span color="#00FF41">[Enter]</span> Edit  |  '
-                '<span color="#00FF41">[Del]</span> Delete  |  '
-                '<span color="#00FF41">[Esc/Q]</span> Cancel'
+                f'<span color="{accent}">[Up/Down]</span> Navigate  |  '
+                f'<span color="{accent}">[Enter]</span> Edit  |  '
+                f'<span color="{accent}">[Del]</span> Delete  |  '
+                f'<span color="{accent}">[Esc/Q]</span> Cancel'
             )
         else:
             return HTML(
-                '<span color="#00FF41">[Left/Right]</span> Switch Tabs  |  '
-                '<span color="#00FF41">[Up/Down]</span> Navigate  |  '
-                '<span color="#00FF41">[Enter]</span> Edit  |  '
-                '<span color="#00FF41">[Del]</span> Delete  |  '
-                '<span color="#00FF41">[Q]</span> Quit'
+                f'<span color="{accent}">[Left/Right]</span> Switch Tabs  |  '
+                f'<span color="{accent}">[Up/Down]</span> Navigate  |  '
+                f'<span color="{accent}">[Enter]</span> Edit  |  '
+                f'<span color="{accent}">[Del]</span> Delete  |  '
+                f'<span color="{accent}">[Q]</span> Quit'
             )
 
     def get_system_info(self):
+        colors = get_current_theme_colors()
+        accent = colors.get("tab_accent", "#CC7832")
+        primary = colors.get("primary", "#A9B7C6")
+        secondary = colors.get("secondary", "#CC7832")
         if self.edit_mode or self.popup_mode or self.listening_mode:
             return HTML('<span color="#FFFF00">EDIT MODE</span>')
         elif self.pending_changes:
             return HTML(f'<span color="#FF8800">{len(self.pending_changes)} changes</span>')
         else:
             hostname = socket.gethostname()
-            return HTML(f'<span color="#00FF41">{ROOT_DIR}</span> <span color="#00FF41">|</span> <span color="#00FFFF">{hostname}</span> <span color="#00FF41">|</span> <span color="#00FF41">v0.0.1</span>')
+            return HTML(f'<span color="{primary}">{ROOT_DIR}</span> <span color="{accent}">|</span> <span color="{secondary}">{hostname}</span> <span color="{accent}">|</span> <span color="{primary}">v0.0.1</span>')
 
     def switch_tab(self, direction):
         if self.popup_mode or self.listening_mode:

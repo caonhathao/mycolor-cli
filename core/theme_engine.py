@@ -97,96 +97,120 @@ THEMES = {
 
 DEFAULT_THEME = "matrix"
 
-current_theme_name = DEFAULT_THEME
-current_theme = THEMES[current_theme_name]
+_theme_engine_initialized = False
+_current_theme_name = DEFAULT_THEME
+_current_theme = THEMES.get(_current_theme_name, THEMES[DEFAULT_THEME])
+_config_manager = None
+
+
+def _get_project_root():
+    if getattr(sys, "frozen", False):
+        return os.path.dirname(sys.executable)
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if hasattr(sys, 'argv') and sys.argv and 'app' in sys.argv[0]:
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(sys.argv[0])))
+    return base_dir
+
+
+def _get_config_singleton():
+    global _config_manager
+    if _config_manager is None:
+        from core.config_manager import get_manager
+        _config_manager = get_manager()
+    return _config_manager
 
 
 def _get_settings_path():
     if getattr(sys, "frozen", False):
         base_dir = os.path.dirname(sys.executable)
     else:
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        base_dir = _get_project_root()
     return os.path.join(base_dir, "config", "settings.json")
 
 
-def set_theme(theme_name: str, save: bool = True) -> bool:
-    global current_theme_name, current_theme
+def _get_theme_from_config():
+    cfg = _get_config_singleton()
+    theme_name = cfg.get_nested("customs", "theme", default=DEFAULT_THEME)
     if theme_name in THEMES:
-        current_theme_name = theme_name
-        current_theme = THEMES[theme_name]
+        return theme_name
+    return DEFAULT_THEME
+
+
+def _ensure_loaded():
+    global _theme_engine_initialized, _current_theme_name, _current_theme
+    if not _theme_engine_initialized:
+        _theme_engine_initialized = True
+        theme_from_config = _get_theme_from_config()
+        _current_theme_name = theme_from_config
+        _current_theme = THEMES[theme_from_config]
+
+
+def get_current_theme_name():
+    _ensure_loaded()
+    return _current_theme_name
+
+
+def set_theme(theme_name: str, save: bool = True) -> bool:
+    global _current_theme_name, _current_theme
+    _ensure_loaded()
+    if theme_name in THEMES:
+        _current_theme_name = theme_name
+        _current_theme = THEMES[theme_name]
         if save:
             _save_theme_to_config(theme_name)
         return True
     return False
 
 
+def _save_theme_to_config(theme_name: str):
+    cfg = _get_config_singleton()
+    config = cfg.get()
+    if "customs" not in config:
+        config["customs"] = {}
+    config["customs"]["theme"] = theme_name
+    cfg.save(config)
+
+
+def get_current_theme():
+    _ensure_loaded()
+    return _current_theme
+
+
 def apply_theme(theme_name: str) -> bool:
-    global current_theme_name, current_theme
+    global _current_theme_name, _current_theme
+    _ensure_loaded()
     if theme_name in THEMES:
-        current_theme_name = theme_name
-        current_theme = THEMES[theme_name]
+        _current_theme_name = theme_name
+        _current_theme = THEMES[theme_name]
         return True
     return False
 
 
-def load_theme_from_config():
-    try:
-        config_path = _get_settings_path()
-        with open(config_path, "r") as f:
-            config = json.load(f)
-            customs = config.get("customs", {})
-            theme_name = customs.get("theme")
-            if theme_name:
-                apply_theme(theme_name)
-    except (IOError, json.JSONDecodeError):
-        pass
-
-
-def _save_theme_to_config(theme_name: str):
-    try:
-        config_path = _get_settings_path()
-        try:
-            with open(config_path, "r") as f:
-                config = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            config = {}
-
-        if "customs" not in config:
-            config["customs"] = {}
-        config["customs"]["theme"] = theme_name
-
-        with open(config_path, "w") as f:
-            json.dump(config, f, indent=4)
-    except IOError:
-        pass
-
-
-def get_current_theme():
-    return current_theme
-
-
 def get_current_theme_colors():
-    primary_hex = get_pt_color_hex(current_theme.get("primary"))
-    secondary_hex = get_pt_color_hex(current_theme.get("secondary"))
+    _ensure_loaded()
+    theme = _current_theme
+    primary_hex = get_pt_color_hex(theme.get("primary"))
+    secondary_hex = get_pt_color_hex(theme.get("secondary"))
     return {
         "primary": primary_hex,
         "secondary": secondary_hex,
-        "background": current_theme.get("background", "#1c1c1c"),
-        "suggestion_bg": current_theme.get("suggestion_bg", "#21262d"),
-        "table_border": current_theme.get("table_border", "#444444"),
-        "table_header": get_pt_color_hex(current_theme.get("table_header", "white")),
-        "table_text": get_pt_color_hex(current_theme.get("table_text", "white")),
-        "active_tab": current_theme.get("active_tab", "#FFFF00"),
-        "tab_accent": current_theme.get("tab_accent", "#FFFF00"),
-        "inactive_tab": current_theme.get("inactive_tab", "#888888"),
-        "monitor_graph": current_theme.get("monitor_graph", "#00FF00"),
-        "monitor_text": get_pt_color_hex(current_theme.get("monitor_text", "white")),
-        "success": current_theme.get("success", "green"),
-        "error": current_theme.get("error", "red"),
-        "warning": current_theme.get("warning", "yellow"),
-        "header_bg": current_theme.get("header_bg", "#1c1c1c"),
-        "header_text": get_pt_color_hex(current_theme.get("header_text", "white")),
-        "cursor": current_theme.get("cursor", "white"),
+        "background": theme.get("background", "#1c1c1c"),
+        "suggestion_bg": theme.get("suggestion_bg", "#21262d"),
+        "table_border": theme.get("table_border", "#444444"),
+        "table_header": get_pt_color_hex(theme.get("table_header", "white")),
+        "table_text": get_pt_color_hex(theme.get("table_text", "white")),
+        "active_tab": theme.get("active_tab", "#FFFF00"),
+        "tab_accent": theme.get("tab_accent", "#FFFF00"),
+        "inactive_tab": theme.get("inactive_tab", "#888888"),
+        "monitor_graph": theme.get("monitor_graph", "#00FF00"),
+        "monitor_text": get_pt_color_hex(theme.get("monitor_text", "white")),
+        "success": theme.get("success", "#6A8759"),
+        "error": theme.get("error", "#CC7832"),
+        "warning": theme.get("warning", "#FFC66D"),
+        "header_bg": theme.get("header_bg", "#1c1c1c"),
+        "header_text": get_pt_color_hex(theme.get("header_text", "white")),
+        "cursor": theme.get("cursor", "white"),
+        "accent": theme.get("tab_accent", "#FFFF00"),
     }
 
 
@@ -211,28 +235,30 @@ def get_pt_color_hex(rich_style) -> str:
 
 
 def get_app_style():
-    primary_hex = get_pt_color_hex(current_theme["primary"])
-    suggestion_bg = current_theme.get("suggestion_bg", "#21262d")
+    _ensure_loaded()
+    theme = _current_theme
+    primary_hex = get_pt_color_hex(theme["primary"])
+    suggestion_bg = theme.get("suggestion_bg", "#21262d")
     return PTStyle.from_dict(
         {
-            "app-background": f"bg:{current_theme['background']}",
-            "input-field": f"bg:{current_theme['background']} fg:{primary_hex}",
-            "input-field text": f"bg:{current_theme['background']} fg:{primary_hex}",
-            "input-border": f"fg:{primary_hex} bg:{current_theme['background']}",
-            "frame.border": f"fg:{primary_hex} bg:{current_theme['background']}",
+            "app-background": f"bg:{theme['background']}",
+            "input-field": f"bg:{theme['background']} fg:{primary_hex}",
+            "input-field text": f"bg:{theme['background']} fg:{primary_hex}",
+            "input-border": f"fg:{primary_hex} bg:{theme['background']}",
+            "frame.border": f"fg:{primary_hex} bg:{theme['background']}",
             "prompt-prefix": f"fg:{primary_hex} bold",
             "placeholder": "fg:#666666 italic",
-            "path": f"bg:{current_theme['background']} fg:#666666 italic",
-            "sep": f"bg:{current_theme['background']} fg:#444444",
-            "pc": f"bg:{current_theme['background']} fg:#666666 italic",
-            "footer-pad": f"bg:{current_theme['background']}",
-            "footer-divider": f"fg:#444444",
+            "path": f"bg:{theme['background']} fg:#666666 italic",
+            "sep": f"bg:{theme['background']} fg:#444444",
+            "pc": f"bg:{theme['background']} fg:#666666 italic",
+            "footer-pad": f"bg:{theme['background']}",
+            "footer-divider": "fg:#444444",
             "completion-menu": f"bg:{suggestion_bg}",
             "completion-menu.completion": f"bg:{suggestion_bg} fg:{primary_hex}",
             "completion-menu.completion.current": f"bg:{primary_hex} fg:#000000",
-            "scrollbar": f"bg:{current_theme['background']}",
+            "scrollbar": f"bg:{theme['background']}",
             "popup-menu": f"bg:{suggestion_bg} fg:{primary_hex}",
-            "popup-item": f"fg:#BBBBBB",
+            "popup-item": "fg:#BBBBBB",
             "popup-selected": f"bg:{primary_hex} fg:#000000 bold",
         }
     )

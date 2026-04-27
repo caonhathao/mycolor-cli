@@ -1,18 +1,7 @@
 import os
 import sys
 
-from core.config_manager import get_manager, PROJECT_ROOT, SETTINGS_PATH
-from core.theme_engine import (
-    THEMES,
-    DEFAULT_THEME,
-    current_theme_name,
-    current_theme,
-    get_current_theme_colors,
-    apply_theme,
-    set_theme,
-    get_app_style,
-)
-
+from core.config_manager import get_manager
 from core.config_manager import DEFAULT_SETTINGS
 
 def _get_project_root():
@@ -33,7 +22,6 @@ commands = config_manager.get_commands()
 window_settings = config_manager.get_window()
 taskmgr_settings = config_manager.get_taskmgr()
 
-THEME = customs.get("theme", DEFAULT_THEME)
 LOGO_STYLE = customs.get("logo_style", "gradient")
 SHOW_TIPS = customs.get("show_tips", True)
 SHOW_LOGO_SHADOW = customs.get("show_logo_shadow", True)
@@ -67,26 +55,20 @@ SHOW_SYSTEM_PROCESSES = settings.get("show_system_processes", False)
 HIDE_SYSTEM_EXES = settings.get("hide_system_exes", [])
 LAST_EXPORT_PATH = settings.get("last_export_path", "")
 
-THEME_COLORS = {
-    "primary": "#00FF41",
-    "secondary": "#FF00FF",
-    "accent": "#00FF41",
-    "background": "#0d1117",
-    "table_text": "#BBBBBB",
-    "table_border": "#444444",
-    "header_text": "#000000",
-    "error": "#FF0000",
-    "success": "#00FF00",
-}
 
 def get_theme_primary():
-    return get_current_theme_colors().get("primary", THEME_COLORS["primary"])
+    from core.theme_engine import get_current_theme_colors
+    return get_current_theme_colors().get("primary", "#A9B7C6")
+
 
 def get_theme_secondary():
-    return get_current_theme_colors().get("secondary", THEME_COLORS["secondary"])
+    from core.theme_engine import get_current_theme_colors
+    return get_current_theme_colors().get("secondary", "#CC7832")
+
 
 def get_theme_primary_rgb():
-    hex_color = get_current_theme_colors().get("primary", THEME_COLORS["primary"])
+    from core.theme_engine import get_current_theme_colors
+    hex_color = get_current_theme_colors().get("primary", "#A9B7C6")
     if hex_color and len(hex_color) >= 7:
         try:
             r = int(hex_color[1:3], 16)
@@ -95,37 +77,23 @@ def get_theme_primary_rgb():
             return r, g, b
         except ValueError:
             pass
-    return 0, 255, 65
+    return 169, 183, 198
+
 
 def get_theme_color(key, default="#c0c0c0"):
+    from core.theme_engine import get_current_theme_colors
     return get_current_theme_colors().get(key, default)
 
-def get_theme_primary_raw():
-    theme = THEMES.get(current_theme_name, THEMES.get(DEFAULT_THEME, THEMES["matrix"]))
-    return theme.get("primary", "#00FF41")
-
-def get_theme_secondary_raw():
-    theme = THEMES.get(current_theme_name, THEMES.get(DEFAULT_THEME, THEMES["matrix"]))
-    return theme.get("secondary", "#003B00")
-
-def get_theme_bg_raw():
-    theme = THEMES.get(current_theme_name, THEMES.get(DEFAULT_THEME, THEMES["matrix"]))
-    return theme.get("background", "#0d1117")
-
-def get_theme_value(key, default="#c0c0c0"):
-    theme = THEMES.get(current_theme_name, THEMES.get(DEFAULT_THEME, THEMES["matrix"]))
-    return theme.get(key, default)
 
 def get_colors_dict():
+    from core.theme_engine import get_current_theme_colors
     return get_current_theme_colors()
 
+
 def get_available_themes():
+    from core.theme_engine import THEMES
     return list(THEMES.keys())
 
-THEME_PRIMARY = get_theme_primary()
-THEME_SECONDARY = get_theme_secondary()
-THEME_PRIMARY_RGB = get_theme_primary_rgb()
-THEME_BG = get_theme_bg_raw()
 
 APP_NAME = "MYCOLOR CLI"
 APP_VERSION = "0.0.1"

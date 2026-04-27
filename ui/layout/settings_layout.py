@@ -12,7 +12,7 @@ from prompt_toolkit.layout.containers import (
 from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.layout.dimension import Dimension
 
-from core.constants import get_theme_primary, THEME_COLORS, get_colors_dict
+from core.theme_engine import get_current_theme_colors
 
 _current_interface = None
 
@@ -36,7 +36,8 @@ def get_current_settings_interface():
 
 
 def build_settings_layout(interface):
-    primary_hex = get_theme_primary()
+    colors = get_current_theme_colors()
+    primary_hex = colors.get("primary")
     
     kb = KeyBindings()
 

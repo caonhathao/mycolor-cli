@@ -10,7 +10,7 @@ from commands.functions.system.system_cmd import (
 )
 from commands.functions.copy.copy_cmd import handle_copy_command
 from commands.functions.system.system_logic import launch_settings_window
-from core.constants import get_theme_primary, get_theme_color
+from core.theme_engine import get_current_theme_colors
 
 
 def dispatch(
@@ -20,7 +20,10 @@ def dispatch(
     application_ref,
     notification_trigger=None,
 ):
-    primary_hex = get_theme_primary()
+    colors = get_current_theme_colors()
+    success_color = colors.get("success", "#6A8759")
+    error_color = colors.get("error", "#CC7832")
+    primary_hex = colors.get("primary")
 
     if command_text == "/quit":
         application_ref.exit()
@@ -57,7 +60,7 @@ def dispatch(
             log_to_buffer("[bold #00FF88]Tip: Alt+S saves changes, Alt+Q quits without saving.[/bold #00FF88]")
         else:
             success, msg = launch_settings_window()
-            color = "green" if success else "red"
+            color = success_color if success else error_color
             log_to_buffer(f"[bold {color}]{msg}[/bold {color}]")
         return True
 

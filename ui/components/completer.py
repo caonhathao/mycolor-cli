@@ -3,7 +3,7 @@ import os
 from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.document import Document
 
-from commands.functions.theme.theme_logic import THEMES
+from core.theme_engine import THEMES
 
 
 class DynamicCommandCompleter(Completer):

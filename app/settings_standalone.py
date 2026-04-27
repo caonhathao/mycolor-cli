@@ -18,12 +18,26 @@ from prompt_toolkit.output import ColorDepth
 from prompt_toolkit.shortcuts import set_title
 from rich.console import Console
 
-from commands.functions.theme.theme_logic import ensure_config_exists, get_app_style, load_config
+from commands.functions.theme.theme_logic import ensure_config_exists
+from core.theme_engine import get_current_theme_colors, get_app_style
 from ui.layout.settings_layout import build_settings_layout, get_settings_layout, get_current_settings_interface
 from core.logger import log_global_crash, CrashLogger
 
 
 _settings_logger = CrashLogger("settings", "debug")
+
+
+def get_settings_colors():
+    return get_current_theme_colors()
+
+
+_settings_colors = None
+
+def _get_colors():
+    global _settings_colors
+    if _settings_colors is None:
+        _settings_colors = get_current_theme_colors()
+    return _settings_colors
 
 
 def early_window_resize():
@@ -41,7 +55,6 @@ def _write_debug_log(message):
 
 early_window_resize()
 ensure_config_exists()
-load_config()
 
 
 async def main_settings():
@@ -171,17 +184,23 @@ async def main_settings():
 
     @kb.add("c-s")
     def save_settings(event):
+        colors = _get_colors()
+        success_color = colors.get("success", "#6A8759")
+        error_color = colors.get("error", "#CC7832")
         if interface.save_all():
-            console.print("[green]Settings saved successfully![/green]")
+            console.print(f"[{success_color}]Settings saved successfully![/{success_color}]")
         else:
-            console.print("[red]Failed to save settings.[/red]")
+            console.print(f"[{error_color}]Failed to save settings.[/{error_color}]")
 
     @kb.add("escape", "s")
     def alt_save_settings(event):
+        colors = _get_colors()
+        success_color = colors.get("success", "#6A8759")
+        error_color = colors.get("error", "#CC7832")
         if interface.save_all():
-            console.print("[green]Settings saved successfully![/green]")
+            console.print(f"[{success_color}]Settings saved successfully![/{success_color}]")
         else:
-            console.print("[red]Failed to save settings.[/red]")
+            console.print(f"[{error_color}]Failed to save settings.[/{error_color}]")
 
     @kb.add("escape", "q")
     def alt_quit_no_save(event):

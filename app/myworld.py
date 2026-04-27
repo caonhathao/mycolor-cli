@@ -20,7 +20,9 @@ from prompt_toolkit.widgets import TextArea
 from rich.console import Console
 
 from ui.components.input_area import get_input_key_bindings, get_input_text_area
-from commands.functions.theme.theme_logic import ensure_config_exists, get_app_style, load_config
+from commands.functions.theme.theme_logic import ensure_config_exists
+from core.theme_engine import get_current_theme_colors, get_app_style
+from ui.styles.theme_styles import get_theme_style
 from core.logger import log_global_crash
 from ui.screens.cmd_screen import get_cmd_screen_container
 from ui.screens.intro_screen import get_intro_screen_container
@@ -31,11 +33,19 @@ if TYPE_CHECKING:
 ensure_config_exists()
 
 
+def _get_settings_path():
+    """Get the settings.json path."""
+    if getattr(sys, "frozen", False):
+        base_dir = os.path.dirname(sys.executable)
+    else:
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_dir, "config", "settings.json")
+
+
 def early_window_resize():
     if platform.system() == "Windows":
         try:
-            from commands.functions.theme.theme_logic import _get_config_path
-            config_path = _get_config_path()
+            config_path = _get_settings_path()
             if os.path.exists(config_path):
                 with open(config_path, "r") as f:
                     config = json.load(f)
@@ -50,8 +60,6 @@ def early_window_resize():
 
 sys.argv = [arg for arg in sys.argv]
 
-early_window_resize()
-
 mode = "default"
 if len(sys.argv) > 1 and "--mode" in sys.argv:
     try:
@@ -61,7 +69,7 @@ if len(sys.argv) > 1 and "--mode" in sys.argv:
     except ValueError:
         pass
 
-load_config()
+early_window_resize()
 
 
 async def main_app(mode="default"):
@@ -149,7 +157,7 @@ async def main_app(mode="default"):
         else:
             return cmd_container
 
-    application.style = get_app_style()
+    application.style = get_theme_style()
 
     root_container = DynamicContainer(get_root_container)
 

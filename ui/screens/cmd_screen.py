@@ -238,8 +238,10 @@ def get_cmd_screen_container(input_area, output_buffer):
 
     # Buffer Status Indicator
     def get_buffer_status():
+        colors = get_current_theme_colors()
+        status_color = colors.get("primary", "#A9B7C6")
         count = output_buffer.document.line_count
-        return [("fg:ansigreen", f" Buffer: {count}/{MAX_LINES} ")]
+        return [(f"fg:{status_color}", f" Buffer: {count}/{MAX_LINES} ")]
 
     # Wrap in FloatContainer for Completions
     return FloatContainer(

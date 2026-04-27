@@ -9,9 +9,8 @@ from rich.table import Table
 
 from commands.functions.system.system_logic import get_startup_apps
 from .base_tab import BaseTab
-from core.constants import REFRESH_INTERVAL, get_theme_primary, get_theme_color
+from core.constants import config_manager, get_theme_primary, get_theme_color
 
-STARTUP_UPDATE_INTERVAL: float = 0.5
 UI_OFFSET = 5
 
 
@@ -31,9 +30,11 @@ class StartupTab(BaseTab):
         )
 
     def update(self, current_time: float) -> bool:
+        config = config_manager.get()
+        interval = config.get("process_update_interval", 0.5)
         if (
             self.last_fetch_time == 0
-            or (current_time - self.last_fetch_time) >= STARTUP_UPDATE_INTERVAL
+            or (current_time - self.last_fetch_time) >= interval
         ):
             self._fetch_startup_apps()
             self.last_fetch_time = current_time
@@ -58,10 +59,10 @@ class StartupTab(BaseTab):
             return self._cached_content
 
         primary_hex = get_theme_primary()
-        suggestion_bg = get_theme_color("suggestion_bg", "#21262d")
+        suggestion_bg = get_theme_color("suggestion_bg", "#3B3F41")
         table_text = get_theme_color("table_text", "white")
-        success_color = get_theme_color("success", "green")
-        error_color = get_theme_color("error", "red")
+        success_color = get_theme_color("success", "#6A8759")
+        error_color = get_theme_color("error", "#CC7832")
 
         console_width = max(10, term_width - 2)
         self._content_console.width = console_width

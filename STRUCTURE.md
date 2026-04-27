@@ -77,6 +77,9 @@ E:\ProjectDev\cli\
 │   │   └── tracker/
 │   │       └── history_tracker.py
 │   │
+│   ├── styles/            # Theme styles
+│   │   └── theme_styles.py # Centralized theme style (prompt_toolkit)
+│   │
 │   └── screens/           # Screen containers
 │       ├── __init__.py
 │       ├── intro_screen.py

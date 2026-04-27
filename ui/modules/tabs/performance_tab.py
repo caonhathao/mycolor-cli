@@ -11,8 +11,7 @@ from services.monitors.gpu_monitor import GPUMonitor
 from services.monitors.net_monitor import NetMonitor
 from services.monitors.ram_monitor import RAMMonitor
 from core.logger import get_worker_logger
-
-REFRESH_INTERVAL = 0.5
+from core.constants import config_manager
 
 _worker_logger = get_worker_logger()
 
@@ -255,7 +254,8 @@ class PerformanceTab(BaseTab):
         _log_debug("PERF", f"on_activate CALLED: existing_threads={len(self._worker_threads)}")
         self._has_update = True
         if not self._worker_threads:
-            self.start_workers(REFRESH_INTERVAL)
+            interval = config_manager.get().get("process_update_interval", 0.5)
+            self.start_workers(interval)
         else:
             _log_debug("PERF", "SKIP_start_workers: threads already running")
 

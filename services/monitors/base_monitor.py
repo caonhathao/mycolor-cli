@@ -1,6 +1,5 @@
 import io
 import os
-import json
 import threading
 from time import monotonic
 
@@ -9,37 +8,23 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 
-from commands.functions.theme.theme_logic import get_current_theme_colors
+from core.theme_engine import get_current_theme_colors
+from core.constants import config_manager
 from prompt_toolkit.formatted_text import ANSI as PT_ANSI
-
-
-def _load_interval():
-    try:
-        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        config_path = os.path.join(base_dir, "config", "settings.json")
-        if os.path.exists(config_path):
-            with open(config_path, "r", encoding="utf-8") as f:
-                return json.load(f).get("process_update_interval", 0.5)
-    except Exception:
-        pass
-    return 0.5
-
-
-_MONITOR_INTERVAL = _load_interval()
 
 
 class BaseMonitor:
     def __init__(self, title="Monitor", color=None):
         self.title = title
         colors = get_current_theme_colors()
-        self.color = color if color else colors.get("monitor_graph", "green")
+        self.color = color if color else colors.get("monitor_graph", "#6A8759")
         self.history = []
         self.last_value = 0.0
         self.cached_frame = ""
         self._cached_formatted = None
         self.blocks = [" ", "▂", "▃", "▄", "▅", "▆", "▇", "█"]
 
-        self.update_interval = 0.5
+        self.update_interval = config_manager.get().get("process_update_interval", 0.5)
         self.last_update_time = 0.0
 
         self._buffer = io.StringIO()

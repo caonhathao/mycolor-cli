@@ -14,7 +14,7 @@ from prompt_toolkit.layout.menus import CompletionsMenu
 from rich.align import Align
 from rich.console import Console
 
-import commands.functions.theme.theme_logic
+from core.theme_engine import get_current_theme
 from ui.components.footer import get_footer_container
 from ui.components.input_area import RoundedFrame
 from ui.components.logo import get_logo_renderable
@@ -38,13 +38,13 @@ def get_intro_screen_container(input_area):
 
     def get_logo_text():
         logo_renderable = get_logo_renderable(
-            content_width, commands.functions.theme.theme_logic.get_current_theme()
+            content_width, get_current_theme()
         )
         return ANSI(rich_to_ansi(logo_renderable, content_width))
 
     def get_tips_text():
         tips_renderable = Align.center(
-            get_tips_renderable(commands.functions.theme.theme_logic.get_current_theme())
+            get_tips_renderable(get_current_theme())
         )
         return ANSI(rich_to_ansi(tips_renderable, content_width))
 

@@ -11,11 +11,11 @@ from prompt_toolkit.layout.containers import (
 from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.layout.dimension import Dimension
 
-import commands.functions.theme.theme_logic
+from core.theme_engine import get_current_theme_colors, get_current_theme
 from ui.screens.taskmgr_screen import TaskManagerInterface
+from core.constants import config_manager
 
 TAB_PROCESSES = 0
-REFRESH_INTERVAL = 3.0
 _current_interface = None
 
 
@@ -38,9 +38,8 @@ def get_current_taskmgr_interface():
 
 def build_taskmgr_layout(interface):
     # Fetch theme colors
-    primary_hex = commands.functions.theme.theme_logic.get_pt_color_hex(
-        commands.functions.theme.theme_logic.current_theme["primary"]
-    )
+    colors = get_current_theme_colors()
+    primary_hex = colors.get("primary")
 
     @Condition
     def show_sidebar_condition() -> bool:

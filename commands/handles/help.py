@@ -4,21 +4,19 @@ from core.constants import (
     SHORTCUT_QUIT,
     SHORTCUT_CLEAR_INPUT,
     COMMANDS,
-    get_theme_primary,
-    get_theme_secondary,
-    get_theme_color,
-    THEME_COLORS,
     config_manager,
 )
+from core.theme_engine import get_current_theme_colors
 import os
 import json
 
 
 def handle_help_command(log_to_buffer):
-    primary_hex = get_theme_primary()
-    secondary_hex = get_theme_secondary()
-    table_text = get_theme_color("table_text", "white")
-    dim_color = get_theme_color("table_border", "#444444")
+    colors = get_current_theme_colors()
+    primary_hex = colors.get("primary")
+    secondary_hex = colors.get("secondary")
+    table_text = colors.get("table_text", "white")
+    dim_color = colors.get("table_border", "#444444")
 
     log_to_buffer("")
     log_to_buffer(f"[bold {primary_hex}]--- COMMANDS ---[/bold {primary_hex}]")

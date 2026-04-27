@@ -2,14 +2,15 @@ from rich.table import Table
 
 from template.result_response import BaseResponseTemplate
 
-from .theme_logic import THEMES, get_app_style, get_current_theme_colors, set_theme
+from .theme_logic import THEMES, set_theme, get_current_theme_colors
+from ui.styles.theme_styles import apply_theme_to_app
 
 
 def handle_theme_command(command_text, log_to_buffer, app_ref):
     parts = command_text.split()
     colors = get_current_theme_colors()
-    success_color = colors.get("success", "green")
-    error_color = colors.get("error", "red")
+    success_color = colors.get("success", "#6A8759")
+    error_color = colors.get("error", "#CC7832")
     primary_hex = colors.get("primary")
 
     if len(parts) == 1 or (len(parts) == 2 and (parts[1] in ["--help", "-h"])):
@@ -31,9 +32,9 @@ def handle_theme_command(command_text, log_to_buffer, app_ref):
     elif len(parts) == 3 and parts[1] == "--style":
         style_name = parts[2]
         if set_theme(style_name):
-            app_ref.style = get_app_style()
+            apply_theme_to_app(app_ref)
             new_colors = get_current_theme_colors()
-            success = new_colors.get("success", "green")
+            success = new_colors.get("success", "#6A8759")
             log_to_buffer(f"[bold {success}]Theme set to {style_name}[/bold {success}]")
             app_ref.invalidate()
         else:

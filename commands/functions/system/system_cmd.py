@@ -1,6 +1,6 @@
-from commands.functions.theme.theme_logic import get_current_theme_colors
+from core.theme_engine import get_current_theme_colors
+
 from template.result_response import BaseResponseTemplate
-from core.constants import get_theme_primary, get_theme_secondary, get_theme_color, THEME_COLORS
 
 from .system_logic import (
     find_processes_by_name,
@@ -34,6 +34,10 @@ def confirm_and_execute_kill(log_to_buffer, notification_trigger=None):
     if not _pending_kill:
         return False
     
+    colors = get_current_theme_colors()
+    success_color = colors.get("success", "#6A8759")
+    error_color = colors.get("error", "#CC7832")
+    
     name = _pending_kill["name"]
     matches = _pending_kill["matches"]
     _pending_kill = None
@@ -47,7 +51,7 @@ def confirm_and_execute_kill(log_to_buffer, notification_trigger=None):
     if notification_trigger:
         notification_trigger(msg, is_success=(killed > 0))
     else:
-        color = "green" if killed > 0 else "red"
+        color = success_color if killed > 0 else error_color
         log_to_buffer(f"[bold {color}]{msg}[/bold {color}]")
     return True
 
@@ -56,7 +60,10 @@ def handle_system_command(log_to_buffer, command_text, notification_trigger=None
     parts = command_text.split()
     flags = parts[1:] if len(parts) > 1 else []
     
-    secondary_hex = get_theme_secondary()
+    colors = get_current_theme_colors()
+    secondary_hex = colors.get("secondary")
+    success_color = colors.get("success", "#6A8759")
+    error_color = colors.get("error", "#CC7832")
 
     if not flags or "-h" in flags or "--help" in flags:
         log_to_buffer(BaseResponseTemplate(
@@ -79,7 +86,7 @@ def handle_system_command(log_to_buffer, command_text, notification_trigger=None
         if success:
             log_to_buffer(f"[bold {secondary_hex}][System] {msg}[/bold {secondary_hex}]")
         else:
-            log_to_buffer(f"[bold red]Error: {msg}[/bold red]")
+            log_to_buffer(f"[bold {error_color}]Error: {msg}[/bold {error_color}]")
         return
 
     if "--end-task" in flags:
@@ -90,14 +97,14 @@ def handle_system_command(log_to_buffer, command_text, notification_trigger=None
             if notification_trigger:
                 notification_trigger(msg, is_success=success)
             else:
-                color = "green" if success else "red"
+                color = success_color if success else error_color
                 log_to_buffer(f"[bold {color}]{msg}[/bold {color}]")
         except (IndexError, ValueError):
             error_msg = f"Error: Missing or invalid PID."
             if notification_trigger:
                 notification_trigger(error_msg, is_success=False)
             else:
-                log_to_buffer(f"[bold red]{error_msg}[/bold red]")
+                log_to_buffer(f"[bold {error_color}]{error_msg}[/bold {error_color}]")
         return
 
     if "--kill" in flags:
@@ -118,8 +125,9 @@ def handle_system_command(log_to_buffer, command_text, notification_trigger=None
                     log_to_buffer(f"[bold red]{error_msg}[/bold red]")
                 return
             
-            primary_hex = get_theme_primary()
-            secondary_hex = get_theme_secondary()
+            colors = get_current_theme_colors()
+            primary_hex = colors.get("primary")
+            secondary_hex = colors.get("secondary")
             pid_color = "#00FFFF"
             
             log_to_buffer("")
@@ -138,24 +146,24 @@ def handle_system_command(log_to_buffer, command_text, notification_trigger=None
                 log_to_buffer(row)
             
             log_to_buffer("")
-            log_to_buffer(f"[bold red]Warning: The following {len(matches)} process(es) will be terminated.[/bold red]")
-            log_to_buffer(f"[bold red]Do you want to proceed? Type 'Y' or 'yes' to confirm.[/bold red]")
+            log_to_buffer(f"[bold {error_color}]Warning: The following {len(matches)} process(es) will be terminated.[/bold {error_color}]")
+            log_to_buffer(f"[bold {error_color}]Do you want to proceed? Type 'Y' or 'yes' to confirm.[/bold {error_color}]")
             log_to_buffer("")
             
             set_pending_kill(name, matches)
             
         except IndexError:
-            log_to_buffer("[bold red]Error: Missing process name.[/bold red]")
+            log_to_buffer(f"[bold {error_color}]Error: Missing process name.[/bold {error_color}]")
 
     if "--run-new" in flags:
         try:
             cmd_idx = flags.index("--run-new") + 1
             cmd = " ".join(flags[cmd_idx:])
             success, msg = run_new_task(cmd)
-            color = "green" if success else "red"
+            color = success_color if success else error_color
             log_to_buffer(f"[bold {color}]{msg}[/bold {color}]")
         except IndexError:
-            log_to_buffer("[bold red]Error: Missing command.[/bold red]")
+            log_to_buffer(f"[bold {error_color}]Error: Missing command.[/bold {error_color}]")
             
     # Startup management
     for flag, enable in [("--d", False), ("--e", True)]:
@@ -164,8 +172,8 @@ def handle_system_command(log_to_buffer, command_text, notification_trigger=None
                 name_idx = flags.index(flag) + 1
                 name = " ".join(flags[name_idx:]) # Assume name is the rest
                 success, msg = set_startup_state(name, enable)
-                color = "green" if success else "red"
+                color = success_color if success else error_color
                 log_to_buffer(f"[bold {color}]{msg}[/bold {color}]")
                 return # Exit after processing one startup command to avoid confusion
             except IndexError:
-                log_to_buffer("[bold red]Error: Missing app name.[/bold red]")
+                log_to_buffer(f"[bold {error_color}]Error: Missing app name.[/bold {error_color}]")

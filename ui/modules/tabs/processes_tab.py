@@ -12,9 +12,8 @@ from rich.console import Console
 
 from commands.functions.theme.theme_logic import get_current_theme_colors
 from .base_tab import BaseTab
-from core.constants import REFRESH_INTERVAL, PROCESS_LIMIT, get_theme_primary, get_theme_secondary, get_theme_color, THEME_COLORS, get_colors_dict
+from core.constants import config_manager
 
-PROCESS_UPDATE_INTERVAL: float = 0.5
 UI_OFFSET = 5
 
 _ANSI_BUFFER = io.StringIO()
@@ -48,18 +47,6 @@ def truncate_text(text: str, width: int) -> str:
     return clean[:width] if len(clean) > width else text
 
 
-def _load_config() -> Dict[str, Any]:
-    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    config_path = os.path.join(base_dir, "config", "settings.json")
-    try:
-        if os.path.exists(config_path):
-            with open(config_path, "r", encoding="utf-8") as f:
-                return json.load(f)
-    except (json.JSONDecodeError, OSError):
-        pass
-    return {}
-
-
 class ProcessesTab(BaseTab):
     def __init__(self, parent):
         super().__init__(parent)
@@ -79,15 +66,16 @@ class ProcessesTab(BaseTab):
         self._cached_process_hash: Optional[int] = None
 
     def update(self, current_time: float) -> bool:
-        config = _load_config()
+        config = config_manager.get()
         taskmgr_config = config.get("taskmgr", {})
         show_system = taskmgr_config.get("exclude_system_apps", True)
+        interval = config.get("process_update_interval", 0.5)
         
         config_hash = hash(str(show_system))
         
         if (
             self.last_fetch_time == 0
-            or (current_time - self.last_fetch_time) >= PROCESS_UPDATE_INTERVAL
+            or (current_time - self.last_fetch_time) >= interval
             or config_hash != self._last_config_hash
         ):
             with self._data_lock:
@@ -102,7 +90,7 @@ class ProcessesTab(BaseTab):
         process_list: List[Dict[str, Any]] = []
         
         taskmgr_config = config.get("taskmgr", {})
-        process_limit = taskmgr_config.get("process_limit", PROCESS_LIMIT)
+        process_limit = taskmgr_config.get("process_limit", 20)
         show_system = taskmgr_config.get("exclude_system_apps", True)
         
         collected = 0
@@ -151,10 +139,10 @@ class ProcessesTab(BaseTab):
                     threads: int, handles: int, cpu_pct: float, mem_pct: float,
                     is_selected: bool, colors: Dict[str, str]) -> str:
         w = COL_WIDTHS
-        pid_color = "#00FFFF"
-        mem_color = "#00FF88"
-        primary_hex = colors["primary"]
-        secondary_hex = colors["secondary"]
+        pid_color = colors.get("primary", "#A9B7C6")
+        mem_color = colors.get("accent", "#CC7832")
+        primary_hex = colors.get("primary")
+        secondary_hex = colors.get("secondary")
         suggestion_bg = colors.get("suggestion_bg", "#21262d")
         table_text = colors.get("table_text", "white")
 
@@ -180,21 +168,26 @@ class ProcessesTab(BaseTab):
         visible_rows = self.visible_rows
         total_count = len(current_processes)
 
-        colors = get_colors_dict()
+        colors = get_current_theme_colors()
         w = COL_WIDTHS
+        
+        primary_hex = colors.get("primary", "#A9B7C6")
+        table_text = colors.get("table_text", "white")
+        secondary_hex = colors.get("secondary", "#FFFFFF")
+        accent = colors.get("accent", "#00FF88")
 
         _ANSI_BUFFER.seek(0)
         _ANSI_BUFFER.truncate(0)
 
         if total_count == 0:
             header_parts = [
-                f"[bold #00FFFF]{'PID':<{w['pid']}}[/]",
-                f"[bold white]{'Process Name':<{w['name']}}[/]",
-                f"[bold #FFFFFF]{'User':<{w['user']}}[/]",
-                f"[bold #00FF88]{'Threads':>{w['threads']}}[/]",
-                f"[bold #00FF88]{'Handles':>{w['handles']}}[/]",
-                f"[bold #00FF88]{'CPU %':>{w['cpu']}}[/]",
-                f"[bold #00FF88]{'Memory %':>{w['mem']}}[/]",
+                f"[bold {primary_hex}]{'PID':<{w['pid']}}[/]",
+                f"[bold {table_text}]{'Process Name':<{w['name']}}[/]",
+                f"[bold {table_text}]{'User':<{w['user']}}[/]",
+                f"[bold {accent}]{'Threads':>{w['threads']}}[/]",
+                f"[bold {accent}]{'Handles':>{w['handles']}}[/]",
+                f"[bold {accent}]{'CPU %':>{w['cpu']}}[/]",
+                f"[bold {accent}]{'Memory %':>{w['mem']}}[/]",
             ]
             _ANSI_CONSOLE.print(" ".join(header_parts))
             _ANSI_CONSOLE.print("[dim]Loading processes...[/dim]")
@@ -224,20 +217,19 @@ class ProcessesTab(BaseTab):
         if process_hash == self._cached_process_hash and self._cached_content is not None:
             return self._cached_content
 
-        colors = get_colors_dict()
         w = COL_WIDTHS
 
         _ANSI_BUFFER.seek(0)
         _ANSI_BUFFER.truncate(0)
 
         header_parts = [
-            f"[bold #00FFFF]{'PID':<{w['pid']}}[/]",
-            f"[bold white]{'Process Name':<{w['name']}}[/]",
-            f"[bold #FFFFFF]{'User':<{w['user']}}[/]",
-            f"[bold #00FF88]{'Threads':>{w['threads']}}[/]",
-            f"[bold #00FF88]{'Handles':>{w['handles']}}[/]",
-            f"[bold #00FF88]{'CPU %':>{w['cpu']}}[/]",
-            f"[bold #00FF88]{'Memory %':>{w['mem']}}[/]",
+            f"[bold {primary_hex}]{'PID':<{w['pid']}}[/]",
+            f"[bold {table_text}]{'Process Name':<{w['name']}}[/]",
+            f"[bold {table_text}]{'User':<{w['user']}}[/]",
+            f"[bold {accent}]{'Threads':>{w['threads']}}[/]",
+            f"[bold {accent}]{'Handles':>{w['handles']}}[/]",
+            f"[bold {accent}]{'CPU %':>{w['cpu']}}[/]",
+            f"[bold {accent}]{'Memory %':>{w['mem']}}[/]",
         ]
         header = "".join(header_parts)
         _ANSI_CONSOLE.print(header)

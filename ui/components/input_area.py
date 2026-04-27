@@ -24,7 +24,7 @@ from prompt_toolkit.formatted_text import Template
 from commands.registry import dispatch, check_pending_confirmation, is_help_request
 from ui.components.completer import DynamicCommandCompleter
 from ui.modules.tracker.history_tracker import get_history_tracker
-from core.constants import get_theme_primary, get_theme_color, THEME_COLORS
+from core.theme_engine import get_current_theme_colors
 
 _ANSI_BUFFER = io.StringIO()
 _ANSI_CONSOLE = Console(file=_ANSI_BUFFER, force_terminal=True, width=80, color_system="truecolor")
@@ -192,6 +192,8 @@ def get_input_text_area(application_ref, output_buffer, on_accept=None):
 
     async def run_system_command(command, log_func, color_hex, app_ref):
         """Executes a system shell command asynchronously and streams output."""
+        theme_colors = get_current_theme_colors()
+        
         # Start tracking this command in history
         get_history_tracker().start_new_entry(command)
 
@@ -211,7 +213,7 @@ def get_input_text_area(application_ref, output_buffer, on_accept=None):
                         decoded = line.decode("cp437", errors="replace").rstrip()
 
                     if decoded:
-                        error_color = get_theme_color("error", "red")
+                        error_color = theme_colors.get("error", "red")
                         style = f"bold {error_color}" if is_stderr else color_hex
                         # Log to buffer and let it handle history capture
                         log_func(f"[{style}]{decoded}[/{style}]", save_to_history=True)
@@ -222,7 +224,7 @@ def get_input_text_area(application_ref, output_buffer, on_accept=None):
             )
             await process.wait()
         except Exception as e:
-            error_color = get_theme_color("error", "red")
+            error_color = theme_colors.get("error", "red")
             log_func(f"[bold {error_color}]Error executing command: {e}[/bold {error_color}]")
 
     def accept_input(buff):
@@ -240,9 +242,10 @@ def get_input_text_area(application_ref, output_buffer, on_accept=None):
             buff.reset()
             return True
 
-        primary_hex = get_theme_primary()
-        suggestion_bg = get_theme_color("suggestion_bg", "#21262d")
-        table_text = get_theme_color("table_text", "white")
+        theme_colors = get_current_theme_colors()
+        primary_hex = theme_colors.get("primary")
+        suggestion_bg = theme_colors.get("suggestion_bg", "#21262d")
+        table_text = theme_colors.get("table_text", "white")
 
         if command_text:
             is_help_requested = is_help_request(command_text)

@@ -9,11 +9,8 @@ import json as json_lib
 
 from prompt_toolkit.formatted_text import ANSI
 
-from commands.functions.theme.theme_logic import _get_settings_path
-from core.constants import (
-    config_manager, PROCESS_UPDATE_INTERVAL, PROCESS_LIMIT, EXCLUDE_SYSTEM_APPS,
-    get_theme_primary, get_theme_color, get_colors_dict, THEME_COLORS
-)
+from core.constants import config_manager
+from core.theme_engine import get_current_theme_colors, get_current_theme
 from core.logger import write_log, get_log_path, CrashLogger, get_worker_logger
 from ui.modules.panels.detail_panel import DetailPanel
 from ui.modules.tabs import ProcessesTab, PerformanceTab, StartupTab
@@ -21,21 +18,6 @@ from ui.modules.tabs import ProcessesTab, PerformanceTab, StartupTab
 
 _taskmgr_logger = CrashLogger("taskmgr", "ui")
 worker_logger = get_worker_logger()
-
-
-def _load_taskmgr_config():
-    from core.constants import PROCESS_UPDATE_INTERVAL, PROCESS_LIMIT, EXCLUDE_SYSTEM_APPS
-    return {
-        "process_update_interval": PROCESS_UPDATE_INTERVAL,
-        "taskmgr": {
-            "process_limit": PROCESS_LIMIT,
-            "exclude_system_apps": EXCLUDE_SYSTEM_APPS
-        }
-    }
-
-
-_taskmgr_config = _load_taskmgr_config()
-REFRESH_INTERVAL = _taskmgr_config.get("process_update_interval", 3.0)
 
 
 class TaskManagerInterface:
@@ -87,7 +69,8 @@ class TaskManagerInterface:
 
         perf_tab = self.tabs[self.TAB_PERFORMANCE]
         if hasattr(perf_tab, 'start_workers'):
-            perf_tab.start_workers(REFRESH_INTERVAL)
+            interval = config_manager.get().get("process_update_interval", 0.5)
+            perf_tab.start_workers(interval)
 
         self._data_changed = True
 
@@ -135,7 +118,8 @@ class TaskManagerInterface:
             except Exception:
                 worker_logger.log_error("_background_worker", traceback.format_exc())
 
-            self._stop_event.wait(REFRESH_INTERVAL)
+            interval = config_manager.get().get("process_update_interval", 0.5)
+            self._stop_event.wait(interval)
 
         try:
             perf_tab = self.tabs[self.TAB_PERFORMANCE]
@@ -159,7 +143,8 @@ class TaskManagerInterface:
         new_tab.on_activate()
         
         if hasattr(new_tab, 'start_workers'):
-            new_tab.start_workers(REFRESH_INTERVAL)
+            interval = config_manager.get().get("process_update_interval", 0.5)
+            new_tab.start_workers(interval)
         
         with self._data_lock:
             self._data_changed = True
@@ -204,8 +189,9 @@ class TaskManagerInterface:
             self._stop_event.set()
 
     def get_header(self):
-        primary_hex = get_theme_primary()
-        header_text = get_theme_color("header_text", THEME_COLORS["header_text"])
+        colors = get_current_theme_colors()
+        primary_hex = colors.get("primary")
+        header_text = colors.get("header_text", "white")
         hostname = socket.gethostname()
         return [(f"bg:{primary_hex} fg:{header_text} bold", f" SYSTEM MONITOR - {hostname} ")]
 
@@ -248,11 +234,11 @@ class TaskManagerInterface:
         return ANSI(perf_tab.net_monitor.get_cached_frame_safe())
 
     def get_tabs_control(self):
-        colors = get_colors_dict()
-        primary_hex = get_theme_primary()
-        tab_accent = get_theme_color("tab_accent", THEME_COLORS.get("accent", "#FFFF00"))
-        inactive_tab_color = get_theme_color("inactive_tab", "#888888")
-        header_text = get_theme_color("header_text", THEME_COLORS["header_text"])
+        colors = get_current_theme_colors()
+        primary_hex = colors.get("primary")
+        tab_accent = colors.get("tab_accent", "#FFFF00")
+        inactive_tab_color = colors.get("inactive_tab", "#888888")
+        header_text = colors.get("header_text", "white")
         tab_names = ["Processes", "Performance", "Startup"]
         text = []
         for i, tab in enumerate(tab_names):
