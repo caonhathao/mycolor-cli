@@ -9,8 +9,8 @@ from rich.align import Align
 from rich.console import Console
 from rich.panel import Panel
 
-from ui.modules.constants import get_theme_primary
-from ui.modules.constants import get_theme_primary
+from core.constants import get_theme_primary
+
 
 
 class DetailPanel:

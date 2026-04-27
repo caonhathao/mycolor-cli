@@ -21,13 +21,7 @@ from prompt_toolkit.layout.containers import (
 from prompt_toolkit.filters import Condition, Never, Always
 from prompt_toolkit.formatted_text import Template
 
-import commands.functions.theme.theme_logic
-from commands.functions.theme.theme_cmd import handle_theme_command
-from commands.functions.sysinfo.sysinfo_cmd import handle_sysinfo_command
-from commands.functions.system.system_cmd import handle_system_command
-from commands.handles.help import handle_help_command
-from commands.handles.clear import handle_clear_command
-from commands.functions.copy.copy_cmd import handle_copy_command
+from commands.registry import dispatch, check_pending_confirmation, is_help_request
 from ui.components.completer import DynamicCommandCompleter
 from ui.modules.tracker.history_tracker import get_history_tracker
 from core.constants import get_theme_primary, get_theme_color, THEME_COLORS
@@ -234,80 +228,26 @@ def get_input_text_area(application_ref, output_buffer, on_accept=None):
     def accept_input(buff):
         command_text = buff.text.strip()
 
-        # Notify external listener (e.g. for screen switching)
         if on_accept:
             on_accept(buff)
 
-        # Clear any persistent notifications from previous commands
         from ui.screens.cmd_screen import get_notification_clearer
-
         clear_notification = get_notification_clearer()
         if clear_notification:
             clear_notification()
 
-        # Check for pending kill confirmation
-        from commands.functions.system.system_cmd import get_pending_kill, confirm_and_execute_kill
-        pending = get_pending_kill()
-        if pending:
-            cmd_lower = command_text.lower().strip()
-            if cmd_lower in ("y", "yes"):
-                confirm_and_execute_kill(log_to_buffer)
-                buff.reset()
-                return True
-            else:
-                log_to_buffer("[bold yellow]Operation aborted by user.[/bold yellow]")
-                buff.reset()
-                return True
+        if check_pending_confirmation(command_text, log_to_buffer):
+            buff.reset()
+            return True
 
-        # Fetch dynamic colors for semantic highlighting
-        primary_hex = commands.functions.theme.theme_logic.get_pt_color_hex(
-            commands.functions.theme.theme_logic.current_theme["primary"]
-        )
+        primary_hex = get_theme_primary()
+        suggestion_bg = get_theme_color("suggestion_bg", "#21262d")
+        table_text = get_theme_color("table_text", "white")
 
         if command_text:
-            # Check if this is a help request (should not be recorded in history)
-            is_help_request = (
-                (
-                    command_text.startswith("/theme")
-                    and (
-                        " -h " in command_text
-                        or command_text.endswith(" -h")
-                        or " --help" in command_text
-                        or command_text.endswith(" --help")
-                    )
-                )
-                or (
-                    command_text.startswith("/system")
-                    and (
-                        " -h " in command_text
-                        or command_text.endswith(" -h")
-                        or " --help" in command_text
-                        or command_text.endswith(" --help")
-                    )
-                )
-                or (
-                    command_text.startswith("/sysinfo")
-                    and (
-                        " -h " in command_text
-                        or command_text.endswith(" -h")
-                        or " --help" in command_text
-                        or command_text.endswith(" --help")
-                    )
-                )
-                or (command_text == "/theme -h" or command_text == "/theme --help")
-                or (command_text == "/system -h" or command_text == "/system --help")
-                or (command_text == "/sysinfo -h" or command_text == "/sysinfo --help")
-            )
-
-            # 1. Start History Entry (skip for help requests)
-            if not command_text.startswith("/copy") and not is_help_request:
+            is_help_requested = is_help_request(command_text)
+            if not command_text.startswith("/copy") and not is_help_requested:
                 get_history_tracker().start_new_entry(command_text)
-
-            # Echo the command to history
-            # New OpenCode aesthetic: Accent bar + Lighter background
-            primary_hex = get_theme_primary()
-            suggestion_bg = get_theme_color("suggestion_bg", "#21262d")
-            table_text = get_theme_color("table_text", "white")
 
             history_line = Text()
             history_line.append("▋", style=f"{primary_hex} on {suggestion_bg}")
@@ -325,134 +265,82 @@ def get_input_text_area(application_ref, output_buffer, on_accept=None):
                 Group(padding_line, history_line, padding_line), save_to_history=False
             )
 
-        if command_text == "/quit":
-            application_ref.exit()
-        elif command_text.startswith("/theme"):
-            handle_theme_command(command_text, log_to_buffer, application_ref)
-        elif command_text.startswith("/sysinfo"):
-            handle_sysinfo_command(log_to_buffer, command_text)
-        elif command_text.startswith("/system"):
+        def _get_notification_trigger():
             from ui.screens.cmd_screen import get_notification_trigger
-            notification_trigger = get_notification_trigger()
-            handle_system_command(log_to_buffer, command_text, notification_trigger)
-        elif command_text == "/help":
-            handle_help_command(log_to_buffer)
-        elif command_text.startswith("/settings"):
-            from commands.functions.system.system_logic import launch_settings_window
-            if "--help" in command_text or "-h" in command_text:
-                primary_hex = get_theme_primary()
-                log_to_buffer("")
-                log_to_buffer(f"[bold {primary_hex}]--- Settings UI ---[/bold {primary_hex}]")
-                log_to_buffer("")
-                log_to_buffer("[bold]Usage:[/bold] /settings")
-                log_to_buffer("")
-                log_to_buffer("Opens a standalone window to manage:")
-                log_to_buffer("  - Customs: theme, logo style, tips visibility")
-                log_to_buffer("  - Shortcuts: keyboard shortcut mappings")
-                log_to_buffer("  - Commands: command aliases")
-                log_to_buffer("")
-                log_to_buffer("[bold #00FF88]Tip: Alt+S saves changes, Alt+Q quits without saving.[/bold #00FF88]")
-            else:
-                success, msg = launch_settings_window()
-                color = "green" if success else "red"
-                log_to_buffer(f"[bold {color}]{msg}[/bold {color}]")
-        elif command_text.startswith("/copy"):
-            from ui.screens.cmd_screen import get_notification_trigger
+            return get_notification_trigger()
 
-            notification_trigger = get_notification_trigger()
-            handle_copy_command(
-                command_text,
-                partial(log_to_buffer, save_to_history=False),
-                output_buffer,
-                notification_trigger,
-            )
-        elif (
-            command_text == "/clear"
-            or command_text.lower() == "cls"
-            or command_text.lower() == "clear"
-        ):
-            handle_clear_command(output_buffer)
-        elif command_text.lower() == "pwd":
-            # 1. Internal 'pwd' Handler
-            cwd = os.getcwd()
-            log_to_buffer(f"[{primary_hex}]{cwd}[/{primary_hex}]")
-        elif command_text.lower() == "ls":
-            # 3. Extend to Other Common Aliases (ls -> dir)
-            application_ref.create_background_task(
-                run_system_command("dir", log_to_buffer, primary_hex, application_ref)
-            )
-        elif command_text.lower().startswith("cd"):
-            # 1. Internal 'cd' Handler
-            try:
-                # Handle 'cd..' case
-                if (
-                    command_text.lower() == "cd.."
-                    or command_text.lower().startswith("cd..\\")
-                    or command_text.lower().startswith("cd../")
-                ):
-                    target_dir = command_text[2:].strip()
-                elif command_text.lower().startswith("cd "):
-                    target_dir = command_text[3:].strip()
-                else:
-                    # Fallback for just 'cd' or invalid syntax, let shell handle or ignore
-                    if command_text.lower() == "cd":
-                        log_to_buffer(f"[{primary_hex}]{os.getcwd()}[/{primary_hex}]")
-                        target_dir = None
-                    else:
-                        # Pass through to system shell if it's something like cda
-                        application_ref.create_background_task(
-                            run_system_command(
-                                command_text,
-                                log_to_buffer,
-                                primary_hex,
-                                application_ref,
-                            )
-                        )
-                        target_dir = None
+        notification_trigger = _get_notification_trigger()
+        dispatched = dispatch(
+            command_text,
+            log_to_buffer,
+            output_buffer,
+            application_ref,
+            notification_trigger,
+        )
 
-                if target_dir:
-                    # Handle quotes if present
-                    if (target_dir.startswith('"') and target_dir.endswith('"')) or (
-                        target_dir.startswith("'") and target_dir.endswith("'")
-                    ):
-                        target_dir = target_dir[1:-1]
-
-                    # Handle /d flag for windows drive change (python os.chdir handles drive change automatically on windows)
-                    if target_dir.lower().startswith("/d "):
-                        target_dir = target_dir[3:].strip()
-
-                    os.chdir(target_dir)
-                    new_cwd = os.getcwd()
-                    log_to_buffer(
-                        f"[{primary_hex}]Changed directory to: {new_cwd}[/{primary_hex}]"
-                    )
-            except Exception as e:
-                log_to_buffer(f"[bold red]Error changing directory: {e}[/bold red]")
-        elif command_text:  # Not empty
-            application_ref.create_background_task(
-                run_system_command(
-                    command_text, log_to_buffer, primary_hex, application_ref
+        if not dispatched and command_text:
+            if command_text.lower() == "pwd":
+                cwd = os.getcwd()
+                log_to_buffer(f"[{primary_hex}]{cwd}[/{primary_hex}]")
+            elif command_text.lower() == "ls":
+                application_ref.create_background_task(
+                    run_system_command("dir", log_to_buffer, primary_hex, application_ref)
                 )
-            )
+            elif command_text.lower().startswith("cd"):
+                _handle_cd(command_text, log_to_buffer, primary_hex, application_ref)
+            else:
+                application_ref.create_background_task(
+                    run_system_command(
+                        command_text, log_to_buffer, primary_hex, application_ref
+                    )
+                )
 
         if command_text:
-            # Add exactly ONE empty line of space after the Result/Output
             log_to_buffer("", save_to_history=False)
 
-        # --- MANDATORY FIX: Manually append command to history ---
         if command_text:
             try:
                 buff.history.append_string(command_text)
             except Exception:
                 pass
-        # ----------------------------------------------------
 
-        # Clear the buffer for the next command
         buff.reset()
-        
         return True
-        # Invalidate the application to force a redraw
-        application_ref.invalidate()
+
+    def _handle_cd(command_text, log_to_buffer, primary_hex, app_ref):
+        try:
+            if (
+                command_text.lower() == "cd.."
+                or command_text.lower().startswith("cd..\\")
+                or command_text.lower().startswith("cd../")
+            ):
+                target_dir = command_text[2:].strip()
+            elif command_text.lower().startswith("cd "):
+                target_dir = command_text[3:].strip()
+            else:
+                if command_text.lower() == "cd":
+                    log_to_buffer(f"[{primary_hex}]{os.getcwd()}[/{primary_hex}]")
+                    target_dir = None
+                else:
+                    app_ref.create_background_task(
+                        run_system_command(command_text, log_to_buffer, primary_hex, app_ref)
+                    )
+                    target_dir = None
+
+            if target_dir:
+                if (target_dir.startswith('"') and target_dir.endswith('"')) or (
+                    target_dir.startswith("'") and target_dir.endswith("'")
+                ):
+                    target_dir = target_dir[1:-1]
+
+                if target_dir.lower().startswith("/d "):
+                    target_dir = target_dir[3:].strip()
+
+                os.chdir(target_dir)
+                new_cwd = os.getcwd()
+                log_to_buffer(f"[{primary_hex}Changed directory to: {new_cwd}[/{primary_hex}]")
+        except Exception as e:
+            log_to_buffer(f"[bold red]Error changing directory: {e}[/bold red]")
 
     history = InMemoryHistory()
 
@@ -493,8 +381,7 @@ def get_input_key_bindings(application_ref, output_buffer=None):
     def clear_terminal(event):
         """Ctrl+L triggers /clear command to flush terminal history."""
         if output_buffer:
-            from commands.handles.clear import handle_clear_command
-            handle_clear_command(output_buffer)
+            dispatch("/clear", lambda x: None, output_buffer, event.app)
             event.app.invalidate()
 
     @kb.add("escape", "c")

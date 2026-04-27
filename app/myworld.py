@@ -21,7 +21,7 @@ from rich.console import Console
 
 from ui.components.input_area import get_input_key_bindings, get_input_text_area
 from commands.functions.theme.theme_logic import ensure_config_exists, get_app_style, load_config
-from ui.modules.logger import log_global_crash
+from core.logger import log_global_crash
 from ui.screens.cmd_screen import get_cmd_screen_container
 from ui.screens.intro_screen import get_intro_screen_container
 

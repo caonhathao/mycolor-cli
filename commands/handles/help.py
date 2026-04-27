@@ -1,4 +1,4 @@
-from ui.modules.constants import (
+from core.constants import (
     SHORTCUTS,
     SHORTCUT_CLEAR,
     SHORTCUT_QUIT,
@@ -8,8 +8,7 @@ from ui.modules.constants import (
     get_theme_secondary,
     get_theme_color,
     THEME_COLORS,
-    get_settings,
-    _get_project_root,
+    config_manager,
 )
 import os
 import json
@@ -60,7 +59,7 @@ def handle_help_command(log_to_buffer):
     )
     log_to_buffer("")
 
-    config = get_settings()
+    config = config_manager.get()
     show_system = config.get("show_system_processes", True)
     export_path = config.get("last_export_path", "Not set")
     theme = config.get("customs", {}).get("theme", "matrix")

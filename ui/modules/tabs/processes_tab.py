@@ -12,7 +12,7 @@ from rich.console import Console
 
 from commands.functions.theme.theme_logic import get_current_theme_colors
 from .base_tab import BaseTab
-from ..constants import REFRESH_INTERVAL, PROCESS_LIMIT, get_theme_primary, get_theme_secondary, get_theme_color, THEME_COLORS, get_colors_dict
+from core.constants import REFRESH_INTERVAL, PROCESS_LIMIT, get_theme_primary, get_theme_secondary, get_theme_color, THEME_COLORS, get_colors_dict
 
 PROCESS_UPDATE_INTERVAL: float = 0.5
 UI_OFFSET = 5

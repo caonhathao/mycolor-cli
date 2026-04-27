@@ -11,7 +11,7 @@ from prompt_toolkit.formatted_text import ANSI
 
 from commands.functions.theme.theme_logic import _get_settings_path
 from core.constants import (
-    get_settings, PROCESS_UPDATE_INTERVAL, PROCESS_LIMIT, EXCLUDE_SYSTEM_APPS,
+    config_manager, PROCESS_UPDATE_INTERVAL, PROCESS_LIMIT, EXCLUDE_SYSTEM_APPS,
     get_theme_primary, get_theme_color, get_colors_dict, THEME_COLORS
 )
 from core.logger import write_log, get_log_path, CrashLogger, get_worker_logger
@@ -107,7 +107,7 @@ class TaskManagerInterface:
     def _background_worker(self):
         import traceback
         from time import monotonic
-        from ui.modules.logger import get_worker_logger, _ensure_logs_dir
+        from core.logger import get_worker_logger, _ensure_logs_dir
         worker_logger = get_worker_logger()
         logs_dir = _ensure_logs_dir()
         ui_log_path = os.path.join(logs_dir, "taskmgr-ui-pulse-debug.log")

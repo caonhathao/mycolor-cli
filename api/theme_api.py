@@ -1,4 +1,4 @@
-from ui.modules.theme_engine import THEMES
+from core.theme_engine import THEMES
 
 def get_available_themes():
     return list(THEMES.keys())

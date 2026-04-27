@@ -18,7 +18,7 @@ from rich.console import Console
 
 from commands.functions.theme.theme_logic import ensure_config_exists, get_app_style, load_config
 from ui.layout.taskmgr_layout import get_taskmgr_layout, get_current_taskmgr_interface
-from ui.modules.logger import log_global_crash, CrashLogger
+from core.logger import log_global_crash, CrashLogger
 
 
 _taskmgr_logger = CrashLogger("taskmgr", "standalone")
