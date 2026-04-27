@@ -7,9 +7,6 @@ from .copy_logic import copy_last_n_pairs, export_history_to_file
 
 def handle_copy_command(command_text, log_func, output_buffer, notification_trigger):
     parts = command_text.strip().split()
-    colors = get_current_theme_colors()
-    success_color = colors.get("success", "#6A8759")
-    error_color = colors.get("error", "#CC7832")
 
     # 1. No arguments or Help -> Show Usage Guide (No notification)
     if len(parts) == 1 or "--help" in parts or "-h" in parts:
@@ -36,11 +33,17 @@ def handle_copy_command(command_text, log_func, output_buffer, notification_trig
         return
 
     # Unknown args
-    log_func("[bold red]Invalid arguments.[/bold red]")
+    colors = get_current_theme_colors()
+    error_color = colors.get("error", "#CC7832")
+    log_func(f"[bold {error_color}]Invalid arguments.[/bold {error_color}]")
     handle_copy_command("/copy --help", log_func, output_buffer, notification_trigger)
 
 
 def _handle_export(parts, log_func, output_buffer, notification_trigger):
+    colors = get_current_theme_colors()
+    success_color = colors.get("success", "#6A8759")
+    error_color = colors.get("error", "#CC7832")
+    
     user_path = None
     try:
         idx = parts.index("--export")

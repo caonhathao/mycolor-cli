@@ -2,7 +2,6 @@ import json
 import os
 import sys
 
-from prompt_toolkit.styles import Style as PTStyle
 from core.theme_engine import (
     THEMES,
     DEFAULT_THEME,

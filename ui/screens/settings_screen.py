@@ -1,6 +1,4 @@
 import io
-import json
-import os
 import shutil
 import socket
 import threading
@@ -8,7 +6,7 @@ import threading
 from prompt_toolkit.formatted_text import ANSI, HTML
 from rich.console import Console
 
-from core.config_manager import ConfigManager, get_manager
+from core.config_manager import get_manager
 from core.constants import ROOT_DIR
 from core.theme_engine import apply_theme, get_current_theme_colors
 from api.theme_api import get_available_themes
@@ -111,7 +109,6 @@ class SettingsInterface:
         suggestion_bg = colors.get("suggestion_bg", "#21262d")
         table_text = colors.get("table_text", "#BBBBBB")
         accent = colors.get("tab_accent", "#CC7832")
-        edit_bg = "#3B3F41"
 
         KEY_COL = 18
         VAL_COL = 20
