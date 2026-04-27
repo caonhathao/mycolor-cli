@@ -4,142 +4,180 @@
 
 ```
 E:\ProjectDev\cli\
-├── myworld.py                 # Redirects to app/myworld.py (deprecated, use run.bat)
-├── config.json              # Theme and window settings (old, migrated to config/)
-├── run.bat                 # Main launch script
-├── run_taskmgr.bat         # Task Manager launch script
-├── run_settings.bat       # Settings launch script
-├── requirements.txt        # Dependencies
-├── README.md              # Documentation
-├── AGENTS.md             # Developer guide
-│
 ├── app/                  # Application entry points
-│   ├── myworld.py       # Main entry point
-│   ├── taskmgr_standalone.py  # Task Manager UI
-│   └── settings_standalone.py # Settings UI
+│   ├── myworld.py           # Main entry point
+│   ├── taskmgr_standalone.py # Task Manager standalone
+│   └── settings_standalone.py # Settings standalone
 │
-├── config/              # Configuration files
-│   └── settings.json  # Customizations, shortcuts, commands
-│
-├── logs/               # Log files (centralized, naming: <test_object>-<test_component>-debug.log)
-│   ├── mw-crash-debug.log              # Main app crash reports
-│   ├── settings-debug-debug.log        # Settings UI debug logs  
-│   ├── taskmgr-ui-debug.log             # Task Manager UI logs
-│   ├── taskmgr-standalone-debug.log     # Task Manager standalone logs
-│   ├── performance-workers-lifecycle-debug.log  # Worker thread events
-│   ├── performance-rendering-debug.log           # Render/invalidation signals
-│   ├── performance-ui-access-debug.log            # UI data access patterns
-│   ├── performance-error-runtime-debug.log        # Runtime errors
-│   └── taskmgr-ui-pulse-debug.log      # Task Manager UI pulse logs
-│
-├── components/           # UI widgets
+├── api/                  # API layer (public interface)
 │   ├── __init__.py
-│   ├── completer.py      # Command auto-completion
-│   ├── footer.py        # Footer bar (cwd + hostname)
-│   ├── input_area.py   # Input TextArea + key bindings + command routing
-│   ├── logo.py        # ASCII logo renderer
-│   └── tips.py        # Tips display
+│   └── theme_api.py        # Theme API for UI access
 │
-├── functions/           # Command handlers
+├── commands/              # Command handlers
+│   ├── handles/           # Simple command handlers
+│   │   ├── help.py
+│   │   ├── clear.py
+│   │   └── quit.py
+│   ├── functions/         # Complex command modules
+│   │   ├── copy/
+│   │   │   ├── copy_cmd.py
+│   │   │   └── copy_logic.py
+│   │   ├── sysinfo/
+│   │   │   ├── sysinfo_cmd.py
+│   │   │   └── sysinfo_logic.py
+│   │   ├── system/
+│   │   │   ├── system_cmd.py
+│   │   │   └── system_logic.py
+│   │   └── theme/
+│   │       ├── theme_cmd.py
+│   │       └── theme_logic.py
+│   └── config/
+│       └── settings.json    # User settings (shortcuts, aliases)
+│
+├── core/                  # Core logic (business rules, data)
+│   ├── constants.py        # Global constants
+│   ├── logger.py           # Crash logger
+│   ├── config_manager.py   # Configuration management
+│   └── theme_engine.py     # Theme engine
+│
+├── services/              # Services layer (system data sources)
+│   └── monitors/          # System monitors
+│       ├── base_monitor.py # BaseMonitor class
+│       ├── cpu_monitor.py  # CPU graph
+│       ├── ram_monitor.py  # RAM graph
+│       ├── gpu_monitor.py  # GPU graph
+│       └── net_monitor.py  # Network graph
+│
+├── template/              # Response templates
 │   ├── __init__.py
-│   ├── help.py        # /help command handler
-│   ├── clear.py      # /clear command handler
-│   ├── quit.py      # /quit command handler
-│   ├── copy/        # /copy command module
-│   │   ├── __init__.py
-│   │   ├── copy_cmd.py
-│   │   └── copy_logic.py
-│   ├── sysinfo/      # /sysinfo command module
-│   │   ├── __init__.py
-│   │   ├── sysinfo_cmd.py
-│   │   └── sysinfo_logic.py
-│   ├── system/      # /system command module
-│   │   ├── __init__.py
-│   │   ├── system_cmd.py
-│   │   └── system_logic.py
-│   └── theme/      # /theme command module
+│   └── result_response.py
+│
+├── ui/                    # UI layer (presentation only)
+│   ├── components/        # Reusable widgets
+│   │   ├── completer.py   # Command auto-completion
+│   │   ├── footer.py      # Footer bar
+│   │   ├── input_area.py  # TextArea + key bindings
+│   │   ├── logo.py        # ASCII logo
+│   │   └── tips.py        # Tips display
+│   │
+│   ├── layout/            # Layout builders
+│   │   ├── taskmgr_layout.py
+│   │   └── settings_layout.py
+│   │
+│   ├── modules/           # UI state management (NO core logic here)
+│   │   ├── constants.py  # UI constants only
+│   │   ├── logger.py      # UI logger
+│   │   ├── tabs/          # Task manager tabs
+│   │   │   ├── base_tab.py
+│   │   │   ├── performance_tab.py
+│   │   │   ├── processes_tab.py
+│   │   │   └── startup_tab.py
+│   │   ├── panels/
+│   │   │   └── detail_panel.py
+│   │   └── tracker/
+│   │       └── history_tracker.py
+│   │
+│   └── screens/           # Screen containers
 │       ├── __init__.py
-│       ├── theme_cmd.py
-│       └── theme_logic.py
+│       ├── intro_screen.py
+│       ├── cmd_screen.py
+│       ├── taskmgr_screen.py
+│       └── settings_screen.py
 │
-├── layout/            # Layout definitions
-│   ├── __init__.py
-│   ├── taskmgr_layout.py # Task manager layout builder
-│   └── settings_layout.py # Settings layout builder
+├── utils/                 # Utilities
+│   └── clipboard_manager.py
 │
-├── modules/          # System monitoring modules
-│   ├── __init__.py
-│   ├── constants.py     # Configuration Gatekeeper - loads settings.json, provides centralized constants
-│   ├── monitors/   # System monitors
-│   │   ├── __init__.py
-│   │   ├── base_monitor.py  # BaseMonitor class
-│   │   ├── cpu_monitor.py  # CPU graph monitor
-│   │   ├── ram_monitor.py  # RAM graph monitor
-│   │   ├── gpu_monitor.py  # GPU graph monitor
-│   │   └── net_monitor.py  # Network I/O monitor
-│   ├── panels/
-│   │   ├── __init__.py
-│   │   └── detail_panel.py  # Detail panel for selected item
-│   ├── tabs/       # Task manager tabs
-│   │   ├── __init__.py
-│   │   ├── base_tab.py      # BaseTab class
-│   │   ├── performance_tab.py # CPU/RAM/GPU/Network graphs tab
-│   │   ├── processes_tab.py   # Process list tab
-│   │   └── startup_tab.py   # Startup apps tab
-│   ├── tracker/
-│   │   ├── __init__.py
-│   │   └── history_tracker.py # Command result history
-│   └── utils/
-│       ├── __init__.py
-│       └── clipboard_manager.py
-│
-├── screens/         # Screen containers
-│   ├── __init__.py
-│   ├── cmd_screen.py     # Command screen (main CLI view)
-│   ├── intro_screen.py   # Intro/hero screen
-│   ├── taskmgr_screen.py # Task manager interface
-│   └── settings_screen.py # Settings interface
-│
-├── template/       # Response templates
-│   ├── __init__.py
-│   └── result_response.py # BaseResponseTemplate
-│
-└── .venv/        # Virtual environment
+├── logs/                  # Log files
+├── .venv/                 # Virtual environment
+└── Root files             # run.bat, run_taskmgr.bat, run_settings.bat, AGENTS.md, etc.
 ```
 
-## 2. Component & File Responsibilities
+## 2. Architecture: Core-API-UI
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         UI LAYER                                 │
+│  (ui/screens/, ui/components/, ui/layout/, ui/modules/)          │
+│  - Presentation only                                             │
+│  - Uses API to interact with Core                               │
+│  - NO core logic (config, theme engine, etc.)                   │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                         API LAYER                                │
+│  (api/)                                                          │
+│  - Public interface for UI                                       │
+│  - Abstracts Core implementation                                  │
+│  - Example: theme_api.get_available_themes()                     │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                         CORE LAYER                               │
+│  (core/, commands/)                                             │
+│  - Business logic                                               │
+│  - Data management                                               │
+│  - Example: config_manager.py, theme_engine.py, logger.py       │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## 3. Component Responsibilities
 
 ### Entry Points (app/)
 | File | Role |
 |------|------|
-| `myworld.py` | Main application bootstrap, screen routing, prompt_toolkit Application setup, Windows Terminal detection and relaunch |
-| `taskmgr_standalone.py` | Standalone entry point for Task Manager UI |
-| `settings_standalone.py` | Standalone entry point for Settings UI |
+| `myworld.py` | Main CLI app bootstrap, screen routing, Windows Terminal detection |
+| `taskmgr_standalone.py` | Task Manager standalone subprocess |
+| `settings_standalone.py` | Settings standalone subprocess |
 
-### Configuration (config/)
+### API Layer (api/)
 | File | Role |
 |------|------|
-| `settings.json` | Customizations, keyboard shortcuts, command aliases |
+| `theme_api.py` | Public API for theme operations (get themes, set theme) |
 
-### Logs (logs/)
-Centralized logging using `modules/logger.py`. All logs follow naming convention:
-`<test_object>-<test_component>-debug.log`
+### Core Layer (core/)
+| File | Role |
+|------|------|
+| `config_manager.py` | Load/save configuration, manage settings.json |
+| `theme_engine.py` | Theme color calculations, gradient generation |
+| `logger.py` | Centralized crash logging |
+| `constants.py` | Global constants |
 
-| File | Purpose |
-|------|---------|
-| `mw-crash-debug.log` | Main application crash reports |
-| `settings-debug-debug.log` | Settings UI debug logs |
-| `taskmgr-ui-debug.log` | Task Manager UI logs |
-| `taskmgr-standalone-debug.log` | Task Manager standalone logs |
-| `performance-workers-lifecycle-debug.log` | Worker thread lifecycle events |
-| `performance-rendering-debug.log` | Render/invalidation signals |
-| `performance-ui-access-debug.log` | UI data access patterns |
-| `performance-error-runtime-debug.log` | Runtime errors from worker threads |
-| `taskmgr-ui-pulse-debug.log` | Task Manager UI pulse logs |
+### Commands (commands/)
+| File | Role |
+|------|------|
+| `handles/help.py`, `clear.py`, `quit.py` | Simple command handlers |
+| `functions/copy/*` | Copy command logic |
+| `functions/sysinfo/*` | System info command |
+| `functions/system/*` | System commands (taskmgr, etc.) |
+| `functions/theme/*` | Theme command |
+| `config/settings.json` | User preferences, shortcuts, aliases |
 
-### Components (UI Widgets)
-Same as before - unchanged responsibility.
+### Services Layer (services/)
+| File | Role |
+|------|------|
+| `monitors/base_monitor.py` | Base monitor with graph rendering |
+| `monitors/cpu_monitor.py` | CPU usage monitoring |
+| `monitors/ram_monitor.py` | RAM usage monitoring |
+| `monitors/gpu_monitor.py` | GPU monitoring (NVIDIA) |
+| `monitors/net_monitor.py` | Network I/O monitoring |
+
+### UI Layer (ui/)
+| Directory | Role |
+|-----------|------|
+| `components/` | TextArea, completer, footer, logo, tips |
+| `layout/` | Layout builders for taskmgr/settings |
+| `screens/` | Screen containers (intro, cmd, taskmgr, settings) |
+| `modules/` | UI state (tabs, panels, tracker) - NO core logic |
+
+**IMPORTANT**: `ui/modules/` contains only UI-related modules. Core logic files (config_manager, theme_engine, logger, constants) must NOT be placed here. They belong in `core/`.
+
+### Utilities (utils/)
+| File | Role |
+|------|------|
+| `clipboard_manager.py` | Clipboard operations |
 
 ---
 
-*Generated: Project Architecture Audit (Updated: 2026-04-25)*
+*Generated: Project Architecture Audit (Updated: 2026-04-27)*

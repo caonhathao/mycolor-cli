@@ -18,9 +18,9 @@ from prompt_toolkit.output import ColorDepth
 from prompt_toolkit.shortcuts import set_title
 from rich.console import Console
 
-from functions.theme.theme_logic import ensure_config_exists, get_app_style, load_config
-from layout.settings_layout import build_settings_layout, get_settings_layout, get_current_settings_interface
-from modules.logger import log_global_crash, CrashLogger
+from commands.functions.theme.theme_logic import ensure_config_exists, get_app_style, load_config
+from ui.layout.settings_layout import build_settings_layout, get_settings_layout, get_current_settings_interface
+from ui.modules.logger import log_global_crash, CrashLogger
 
 
 _settings_logger = CrashLogger("settings", "debug")

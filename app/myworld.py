@@ -19,11 +19,11 @@ from prompt_toolkit.patch_stdout import patch_stdout
 from prompt_toolkit.widgets import TextArea
 from rich.console import Console
 
-from components.input_area import get_input_key_bindings, get_input_text_area
-from functions.theme.theme_logic import ensure_config_exists, get_app_style, load_config
-from modules.logger import log_global_crash
-from screens.cmd_screen import get_cmd_screen_container
-from screens.intro_screen import get_intro_screen_container
+from ui.components.input_area import get_input_key_bindings, get_input_text_area
+from commands.functions.theme.theme_logic import ensure_config_exists, get_app_style, load_config
+from ui.modules.logger import log_global_crash
+from ui.screens.cmd_screen import get_cmd_screen_container
+from ui.screens.intro_screen import get_intro_screen_container
 
 if TYPE_CHECKING:
     pass
@@ -34,7 +34,7 @@ ensure_config_exists()
 def early_window_resize():
     if platform.system() == "Windows":
         try:
-            from functions.theme.theme_logic import _get_config_path
+            from commands.functions.theme.theme_logic import _get_config_path
             config_path = _get_config_path()
             if os.path.exists(config_path):
                 with open(config_path, "r") as f:

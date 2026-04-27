@@ -4,14 +4,46 @@ This document explains the execution flow from startup through command execution
 
 ---
 
-## 1. Application Lifecycle
+## 1. Architecture: Core-API-UI
 
-### 1.1 Entry Point Sequence (Main Process)
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         UI LAYER                                 │
+│  (ui/screens/, ui/components/, ui/layout/, ui/modules/)          │
+│                                                                  │
+│  Example Flow - Theme Update:                                    │
+│  settings_screen.py → theme_api.get_available_themes()         │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                         API LAYER                                │
+│  (api/theme_api.py)                                             │
+│                                                                  │
+│  Example Flow - Theme Update:                                    │
+│  get_available_themes() → config_manager.get_themes()           │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                         CORE LAYER                               │
+│  (core/, commands/)                                              │
+│                                                                  │
+│  Example Flow - Theme Update:                                    │
+│  config_manager.py → settings.json → theme_engine.apply()      │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 2. Application Lifecycle
+
+### 2.1 Entry Point Sequence (Main Process)
 
 ```
 app/myworld.py (or run.bat)
   ├── 1. early_window_resize()      # Set terminal to 120x30
-  ├── 2. ensure_config_exists()   # Create config.json if missing
+  ├── 2. ensure_config_exists()   # Create settings.json if missing
   ├── 3. load_config()          # Load theme/window settings
   ├── 4. main_app()             # Async entry point
        ├── Check WT_SESSION      # Detect Windows Terminal
@@ -23,12 +55,12 @@ app/myworld.py (or run.bat)
        └── application.run_async()
 ```
 
-### 1.1.1 Entry Point Sequence (Task Manager)
+### 2.1.1 Entry Point Sequence (Task Manager)
 
 ```
 app/taskmgr_standalone.py (or run_taskmgr.bat)
   ├── 1. early_window_resize()      # Set terminal to 120x30
-  ├── 2. ensure_config_exists()   # Create config.json if missing
+  ├── 2. ensure_config_exists()   # Create settings.json if missing
   ├── 3. load_config()          # Load theme/window settings
   ├── 4. main_taskmgr()         # Async entry point
        ├── Create Application # prompt_toolkit Application
@@ -39,12 +71,12 @@ app/taskmgr_standalone.py (or run_taskmgr.bat)
        └── application.run_async()
 ```
 
-### 1.1.2 Entry Point Sequence (Settings)
+### 2.1.2 Entry Point Sequence (Settings)
 
 ```
 app/settings_standalone.py (or run_settings.bat)
   ├── 1. early_window_resize()      # Set window to 100x35
-  ├── 2. ensure_config_exists()   # Create config.json if missing
+  ├── 2. ensure_config_exists()   # Create settings.json if missing
   ├── 3. load_config()          # Load theme/window settings
   ├── 4. main_settings()       # Async entry point
        ├── Create Application # prompt_toolkit Application
@@ -54,7 +86,7 @@ app/settings_standalone.py (or run_settings.bat)
        └── application.run_async()
 ```
 
-### 1.2 Screen Routing (Main Process)
+### 2.2 Screen Routing (Main Process)
 
 ```
 myworld.py:141-176
@@ -66,7 +98,7 @@ myworld.py:141-176
 └── application.layout = Layout(root_container, focused_element)
 ```
 
-### 1.3 Intro → Cmd Transition
+### 2.3 Intro → Cmd Transition
 
 ```
 intro_screen.py (on_input_accept)
@@ -78,76 +110,76 @@ intro_screen.py (on_input_accept)
 
 ---
 
-## 2. Command Execution Flow
+## 3. Command Execution Flow
 
-### 2.1 Input to Output Pipeline
+### 3.1 Input to Output Pipeline
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│ INPUT PHASE                                                      │
+│ INPUT PHASE                                                          │
 ├──────────────────────────────────────────────────────────────────────┤
-│ 1. User types command in TextArea                                  │
-│ 2. User presses Enter                                            │
-│ 3. accept_input(buff) is invoked                                 │
+│ 1. User types command in TextArea                                    │
+│ 2. User presses Enter                                                │
+│ 3. accept_input(buff) is invoked                                     │
 └──────────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
+                                │
+                                ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│ ROUTING PHASE                                                     │
-├─────��────────────────────────────────────────────────────────────────┤
-│ 4. accept_input() routes by prefix                                │
-│    ├── "/theme" → handle_theme_command()                          │
-│    ├── "/sysinfo" → handle_sysinfo_command()                       │
-│    ├── "/system" → handle_system_command()                        │
-│    ├── "/copy" → handle_copy_command()                           │
-│    ├── "/help" → handle_help_command()                          │
-│    ├── "/clear" → handle_clear_command()                       │
-│    ├── "/quit" → application.exit()                           │
-│    ├── Shell builtins (pwd, ls, cd, cls)                       │
-│    └── Default → shell subprocess                             │
-└──────────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│ EXECUTION PHASE                                                  │
+│ ROUTING PHASE                                                        │
 ├──────────────────────────────────────────────────────────────────────┤
-│ 5. Handler executes logic                                      │
-│    └── May call run_system_command() for subprocess            │
-│        ├── Create asyncio subprocess                           │
-│        ├── Stream stdout/stderr line-by-line                  │
-│        └── Log each line via log_to_buffer()                 │
+│ 4. accept_input() routes by prefix                                   │
+│    ├── "/theme" → handle_theme_command()                             │
+│    ├── "/sysinfo" → handle_sysinfo_command()                         │
+│    ├── "/system" → handle_system_command()                           │
+│    ├── "/copy" → handle_copy_command()                               │
+│    ├── "/help" → handle_help_command()                               │
+│    ├── "/clear" → handle_clear_command()                             │
+│    ├── "/quit" → application.exit()                                  │
+│    ├── Shell builtins (pwd, ls, cd, cls)                            │
+│    └── Default → shell subprocess                                    │
 └──────────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
+                                │
+                                ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│ OUTPUT PHASE                                                      │
+│ EXECUTION PHASE                                                      │
 ├──────────────────────────────────────────────────────────────────────┤
-│ 6. log_to_buffer(renderable, save_to_history=True)              │
-│    ├── rich_to_ansi() via _ANSI_CONSOLE                       │
-│    ├── Insert ANSI string to output_buffer                     │
-│    ├── Append plain text to history_tracker                 │
-│    └── Invalidate application for redraw                    │
+│ 5. Handler executes logic                                           │
+│    └── May call run_system_command() for subprocess                 │
+│        ├── Create asyncio subprocess                                │
+│        ├── Stream stdout/stderr line-by-line                         │
+│        └── Log each line via log_to_buffer()                        │
 └──────────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
+                                │
+                                ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│ RENDER PHASE                                                      │
-├──────────────────────���─��─────────────────────────────────────────────┤
-│ 7. FormattedTextControl.get_formatted_content()                  │
-│    ├── Convert ANSI to FormattedText                              │
-│    └── Return to prompt_toolkit renderer                      │
-│                                                                  │
-│ 8. Output Window renders content                                │
+│ OUTPUT PHASE                                                         │
+├──────────────────────────────────────────────────────────────────────┤
+│ 6. log_to_buffer(renderable, save_to_history=True)                   │
+│    ├── rich_to_ansi() via _ANSI_CONSOLE                              │
+│    ├── Insert ANSI string to output_buffer                          │
+│    ├── Append plain text to history_tracker                         │
+│    └── Invalidate application for redraw                           │
 └──────────────────────────────────────────────────────────────────────┘
+                                │
+                                ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│ RENDER PHASE                                                         │
+├──────────────────────────────────────────────────────────────────────┤
+│ 7. FormattedTextControl.get_formatted_content()                      │
+│    ├── Convert ANSI to FormattedText                                 │
+│    └── Return to prompt_toolkit renderer                            │
+│                                                                          │
+│ 8. Output Window renders content                                     │
+└─���────────────────────────────────────────────────────────────────────┘
 ```
 
-### 2.2 Key Binding Flow
+### 3.2 Key Binding Flow
 
 ```
 Key Press Event
     │
     ├── KeyBindings match (in order)
-    │   ├── Input Area Bindings (input_area.py)
+    │   ├── Input Area Bindings (ui/components/input_area.py)
     │   │   ├── Ctrl+C / Ctrl+Q → quit_app()
     │   │   ├── Alt+Q → alt_q_quit()
     │   │   ├── Ctrl+L → clear_terminal()
@@ -156,7 +188,7 @@ Key Press Event
     │   │   ├── Shift+Up → history_backward()
     │   │   └── Shift+Down → history_forward()
     │   │
-    │   └── Cmd Screen Bindings (cmd_screen.py)
+    │   └── Cmd Screen Bindings (ui/screens/cmd_screen.py)
     │       ├── Tab → disabled (pass)
     │       ├── PageUp → cursor_up(10)
     │       ├── PageDown → cursor_down(10)
@@ -166,10 +198,10 @@ Key Press Event
     └── Event propagates to handler
 ```
 
-### 2.3 Notification Flow
+### 3.3 Notification Flow
 
 ```
-Command Handler (e.g., copy_cmd.py)
+Command Handler (e.g., commands/functions/copy/copy_cmd.py)
     │
     ├── Notification triggered
     │   └── notification_trigger(message, is_success=True)
@@ -190,9 +222,9 @@ Command Handler (e.g., copy_cmd.py)
 
 ---
 
-## 3. Task Manager Flow (Standalone Subprocess)
+## 4. Task Manager Flow (Standalone Subprocess)
 
-### 3.1 Launch Flow
+### 4.1 Launch Flow
 
 ```
 /system --taskmgr (command in main app)
@@ -205,7 +237,7 @@ Command Handler (e.g., copy_cmd.py)
     └── Independent process with unique app_state
 ```
 
-### 3.2 Worker Lifecycle (Background Threads)
+### 4.2 Worker Lifecycle (Background Threads)
 
 ```
 PerformanceTab.on_activate()
@@ -237,58 +269,58 @@ PerformanceTab.on_deactivate()
     └── _log_lifecycle("THREAD EXITED")
 ```
 
-### 3.3 Sampling Pipeline (No-Cache)
+### 4.3 Sampling Pipeline (No-Cache)
 
 ```
 REFRESH_INTERVAL = 0.5s
     │
     ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│ STEP 1: FETCH                                                     │
+│ STEP 1: FETCH (Services Layer)                                       │
 ├──────────────────────────────────────────────────────────────────────┤
-│ Monitor.update()                                                 │
+│ services/monitors/cpu_monitor.py (or ram/gpu/net_monitor.py)        │
 │     ├── psutil.cpu_percent() / psutil.virtual_memory()              │
-│     ├── nvidia-ml-py (if GPU available)                          │
-│     ├── psutil.net_io_counters()                                 │
-│     └── Append value to history[] deque                          │
+│     ├── nvidia-ml-py (if GPU available)                             │
+│     ├── psutil.net_io_counters()                                    │
+│     └── Append value to history[] deque                             │
 └──────────────────────────────────────────────────────────────────────┘
     │
     ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│ STEP 2: RENDER                                                     │
+│ STEP 2: RENDER                                                       │
 ├──────────────────────────────────────────────────────────────────────┤
-│ Monitor.render(width, height)                                    │
-│     ├── _get_graph_text() - Generate ASCII graph                  │
-│     ├── Render Panel via Rich.Console                             │
-│     └── self.cached_frame = ANSI string                           │
-└──────────────────────────────────────────────────────────────────────┘
-    │
-    ▼
-┌──────────────────────────────────────────���───────────────────────────┐
-│ STEP 3: UI ACCESS (REGENERATE EVERY TIME)                        │
-├──────────────────────────────────────────────────────────────────────┤
-│ PerformanceTab.render()                                          │
-│     ├── Call monitor.get_cached_frame_safe()                   │
-│     │   └── Returns self.cached_frame (pre-rendered)            │
-│     │                                                          │
-│     └── UI calls get_cached_formatted()                        │
-│         └── PT_ANSI(self.cached_frame)  ← REGENERATED EVERY CALL│
+│ Monitor.render(width, height)                                       │
+│     ├── _get_graph_text() - Generate ASCII graph                    │
+│     ├── Render Panel via Rich.Console                               │
+│     └── self.cached_frame = ANSI string                             │
 └──────────────────────────────────────────────────────────────────────┘
     │
     ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│ STEP 4: INVALIDATE                                                │
+│ STEP 3: UI ACCESS (REGENERATE EVERY TIME)                            │
 ├──────────────────────────────────────────────────────────────────────┤
-│ Background thread signals UI for redraw                         │
-│     ├── _try_invalidate()                                        │
-│     ├── Check current_screen == "taskmgr"                       │
-│     ├── Get app_id = id(app)                                     │
-│     ├── Log to render_confirm.log                                │
-│     └── app.invalidate() → Force frame redraw                   │
+│ ui/modules/tabs/performance_tab.py                                  │
+│     ├── Call monitor.get_cached_frame_safe()                       │
+│     │   └── Returns self.cached_frame (pre-rendered)                │
+│     │                                                                  │
+│     └── UI calls get_cached_formatted()                             │
+│         └── PT_ANSI(self.cached_frame)  ← REGENERATED EVERY CALL    │
+└──────────────────────────────────────────────────────────────────────┘
+    │
+    ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│ STEP 4: INVALIDATE                                                   │
+├──────────────────────────────────────────────────────────────────────┤
+│ Background thread signals UI for redraw                             │
+│     ├── _try_invalidate()                                           │
+│     ├── Check current_screen == "taskmgr"                           │
+│     ├── Get app_id = id(app)                                        │
+│     ├── Log to render_confirm.log                                   │
+│     └── app.invalidate() → Force frame redraw                       │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
-### 3.4 Process Tab Rendering
+### 4.4 Process Tab Rendering
 
 ```
 ProcessesTab.render():
@@ -307,10 +339,10 @@ ProcessesTab.render():
     └── Cache rendered ANSI string
 ```
 
-### 3.5 Graph Monitors
+### 4.5 Graph Monitors (Services Layer)
 
 ```
-BaseMonitor (modules/monitors/base_monitor.py):
+BaseMonitor (services/monitors/base_monitor.py):
     ├── start()           # Begin collection
     ├── collect()        # Collect metric
     ├── get_graph()      # Generate ASCII graph
@@ -326,28 +358,36 @@ CPU/RAM/GPU/NetMonitor inherit BaseMonitor:
 
 ---
 
-## 4. Data Flow Diagrams
+## 5. Data Flow Diagrams
 
-### 4.1 Theme System
+### 5.1 Theme System (Core-API-UI Flow)
 
 ```
-load_config()
+UI Layer: settings_screen.py
     │
-    ├── Read config.json
+    ▼
+API Layer: theme_api.get_available_themes()
     │
-    get_current_theme_colors()
-    │   ├── Access current_theme dict
-    │   └── Return color hex values
+    ▼
+Core Layer: config_manager.get_themes()
     │
-    get_app_style()
-    │   ├── Convert to prompt_toolkit PTStyle
-    │   └── Apply via application.style
+    ▼
+Core Layer: commands/config/settings.json (customs.theme)
     │
-    rich_to_ansi()
-    │   └── Uses _ANSI_CONSOLE for rendering
+    ▼
+UI Layer: theme_api.set_theme("matrix")
+    │
+    ▼
+Core Layer: config_manager.update_theme("matrix")
+    │
+    ▼
+Core Layer: theme_engine.apply_colors(colors)
+    │
+    ▼
+UI Layer: application.style = get_app_style()
 ```
 
-### 4.2 History Tracker
+### 5.2 History Tracker
 
 ```
 accept_input() called
@@ -360,38 +400,38 @@ accept_input() called
     └── buff.history.append_string(command)
 ```
 
-### 4.3 Screen State Transitions
+### 5.3 Screen State Transitions
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    STATE MACHINE                      │
+│                    STATE MACHINE                        │
 ├─────────────────────────────────────────────────────────┤
 │                                                         │
-│    ┌──────┐   Enter    ┌──────┐   /quit   ┌────────┐  │
-│    │intro │ ────────→  │ cmd  │ ───────→   │ exit   │  │
-│    └──────┘            └──────┘            └────────┘  │
-│                           │                         ▼  │
-│                           │    /system --taskmgr        │  │
+│    ┌──────┐   Enter    ┌──────┐   /quit   ┌────────┐    │
+│    │intro │ ────────→  │ cmd  │ ───────→   │ exit   │    │
+│    └──────┘            └──────┘            └────────┘    │
+│                           │                           ▼    │
+│                           │    /system --taskmgr          │    │
 │                           └────────────────────────→  ┌──────┐
-│                                                    │taskmgr│
-│                                                    │(subprocess)│
-│                                                    └──────┘
+│                                                        │taskmgr│
+│                                                        │(subprocess)│
+│                                                        └──────┘
 └─────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 5. Component Relationships
+## 6. Component Relationships
 
-### 5.1 Dependency Graph
+### 6.1 Dependency Graph
 
 ```
 myworld.py (Entry)
     │
-    ├── functions/theme/theme_logic.py
-    │   └── config.json
+    ├── api/theme_api.py
+    │   └── core/config_manager.py, core/theme_engine.py
     │
-    ├── components/
+    ├── ui/components/
     │   ├── input_area.py
     │   │   ├── completer.py (DynamicCommandCompleter)
     │   │   ├── key bindings
@@ -400,55 +440,54 @@ myworld.py (Entry)
     │   ├── footer.py
     │   └── tips.py
     │
-    ├── screens/
+    ├── ui/screens/
     │   ├── intro_screen.py
-    │   │   └── logo.py + tips.py + input_area.py
+    │   │   └── ui/components/logo.py + tips.py + input_area.py
     │   ├── cmd_screen.py
     │   │   ├── output_buffer (TextArea)
-    │   │   ├── input_area.py
+    │   │   ├── ui/components/input_area.py
     │   │   └── notification_state
     │   └── taskmgr_screen.py (DEPRECATED - use standalone)
-    │       └── layout/taskmgr_layout.py
-    │       └── modules/ (tabs, monitors, panels)
+    │       └── ui/layout/taskmgr_layout.py
+    │       └── ui/modules/ (tabs, monitors, panels)
     │
-    ├── modules/tracker/
+    ├── ui/modules/tracker/
     │   └── history_tracker.py
     │
-    └── functions/ (command handlers)
-        ├── theme/theme_cmd.py → theme_logic.py
-        ├── sysinfo/sysinfo_cmd.py → sysinfo_logic.py
-        ├── system/system_cmd.py → system_logic.py
-        └── copy/copy_cmd.py → copy_logic.py
+    └── commands/ (command handlers)
+        ├── functions/theme/theme_cmd.py → theme_logic.py
+        ├── functions/sysinfo/sysinfo_cmd.py → sysinfo_logic.py
+        ├── functions/system/system_cmd.py → system_logic.py
+        └── functions/copy/copy_cmd.py → copy_logic.py
 
 taskmgr_standalone.py (Independent Subprocess Entry)
     │
-    ├── functions/theme/theme_logic.py
-    │   └── config.json
+    ├── api/theme_api.py
+    │   └── core/config_manager.py, core/theme_engine.py
     │
-    ├── layout/taskmgr_layout.py
+    ├── ui/layout/taskmgr_layout.py
     │   └── get_taskmgr_layout()
     │
-    ├── screens/taskmgr_screen.py
+    ├── ui/screens/taskmgr_screen.py
     │   └── TaskManagerInterface
     │
-    └── modules/tabs/performance_tab.py
-        └── Worker threads (CPU/RAM/GPU/Net monitors)
+    └── ui/modules/tabs/performance_tab.py
+        └── services/monitors/ (CPU/RAM/GPU/Net monitors)
 ```
 
-### 5.2 Singleton Pattern
-
-The following use singleton pattern:
+### 6.2 Singleton Pattern
 
 | Singleton | Accessor | Location |
 |-----------|---------|----------|
-| `HistoryTracker` | `get_history_tracker()` | modules/tracker/history_tracker.py |
-| Theme colors | `get_current_theme_colors()` | functions/theme/theme_logic.py |
-| Config | `load_config()` / `_config` | functions/theme/theme_logic.py |
-| App style | `get_app_style()` | functions/theme/theme_logic.py |
-| Notification trigger | `get_notification_trigger()` | screens/cmd_screen.py |
-| Notification clearer | `get_notification_clearer()` | screens/cmd_screen.py |
+| `HistoryTracker` | `get_history_tracker()` | ui/modules/tracker/history_tracker.py |
+| `ConfigManager` | `get_config_manager()` | core/config_manager.py |
+| `ThemeEngine` | `get_theme_engine()` | core/theme_engine.py |
+| Theme colors | `get_current_theme_colors()` | core/theme_engine.py |
+| App style | `get_app_style()` | core/theme_engine.py |
+| Notification trigger | `get_notification_trigger()` | ui/screens/cmd_screen.py |
+| Notification clearer | `get_notification_clearer()` | ui/screens/cmd_screen.py |
 
-### 5.3 Unique State Isolation
+### 6.3 Unique State Isolation
 
 | Process | app_state Keys | Isolation |
 |---------|----------------|-----------|
@@ -457,28 +496,28 @@ The following use singleton pattern:
 
 ---
 
-## 6. Diagnostic Log Flow
+## 7. Diagnostic Log Flow
 
-### 6.1 Centralized Logging System
+### 7.1 Centralized Logging System
 
-All logs are managed by `modules/logger.py` and stored in the `logs/` directory.
+All logs are managed by `core/logger.py` and stored in the `logs/` directory.
 
 ```
-modules/logger.py
+core/logger.py
     ├── _ensure_logs_dir()        # Creates logs/ directory if missing
     ├── get_log_path(obj, comp)   # Returns logs/<obj>-<comp>-debug.log
     ├── write_log(obj, comp, msg) # Write message to specific log
     ├── log_crash(obj, comp, msg) # Write crash report to log
     ├── CrashLogger class         # Per-module crash logger
     │   └── test_object + test_component → unique log file
-    └── WorkerLogger class        # Worker thread logging
+    └── WorkerLogger class       # Worker thread logging
         ├── log_lifecycle()       # Thread start/stop events
         ├── log_render()          # Render/invalidation signals
         ├── log_ui_access()       # UI data access patterns
         └── log_error()           # Runtime errors
 ```
 
-### 6.2 Log Naming Convention
+### 7.2 Log Naming Convention
 
 Format: `<test_object>-<test_component>-debug.log`
 
@@ -493,33 +532,33 @@ Format: `<test_object>-<test_component>-debug.log`
 | `performance` | `ui-access` | `performance-ui-access-debug.log` |
 | `performance` | `error-runtime` | `performance-error-runtime-debug.log` |
 
-### 6.3 Usage Examples
+### 7.3 Usage Examples
 
 ```python
 # Basic logging
-from modules.logger import write_log
+from core.logger import write_log
 write_log("settings", "theme-customs", "Theme selected: matrix")
 
 # Crash logging
-from modules.logger import log_global_crash
+from core.logger import log_global_crash
 log_global_crash(crash_report)
 
 # Per-module logger
-from modules.logger import CrashLogger
+from core.logger import CrashLogger
 logger = CrashLogger("taskmgr", "ui")
 logger.write("Button clicked")
 logger.log_exception(exc, "handler")
 logger.log_crash(crash_report)
 
 # Worker thread logging
-from modules.logger import get_worker_logger
+from core.logger import get_worker_logger
 worker_logger = get_worker_logger()
 worker_logger.log_lifecycle("CPU_RAM", "THREAD STARTED")
 worker_logger.log_render("RENDER: invalidating UI")
 worker_logger.log_error("worker_net", traceback_str)
 ```
 
-### 6.4 Log Entry Examples
+### 7.4 Log Entry Examples
 
 ```python
 # performance-workers-lifecycle-debug.log
@@ -537,15 +576,15 @@ Traceback (most recent call last):
   ...
 ```
 
-### 6.5 Mandatory Logging Flow for Future Development
+### 7.5 Mandatory Logging Flow for Future Development
 
-All new modules MUST use `modules.logger` for logging:
-1. Import: `from modules.logger import write_log, CrashLogger`
+All new modules MUST use `core/logger` for logging:
+1. Import: `from core.logger import write_log, CrashLogger`
 2. Create logger instance with test_object and test_component
 3. Use naming convention: `<module>-<feature>-debug.log`
 
 ```python
-from modules.logger import write_log, CrashLogger
+from core.logger import write_log, CrashLogger
 
 _mymodule_logger = CrashLogger("mymodule", "feature")
 
@@ -559,4 +598,4 @@ def some_function():
 
 ---
 
-*Generated: Flow Analysis (Updated: 2026-04-26)*
+*Generated: Flow Analysis (Updated: 2026-04-27)*
