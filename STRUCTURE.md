@@ -4,291 +4,224 @@
 
 ```
 E:\ProjectDev\cli\
-├── myworld.py                 # Main entry point
-├── config.json              # Theme and window settings
-├── run.bat                 # Launch script
-├── requirements.txt        # Dependencies
-├── README.md              # Documentation
-├── AGENTS.md             # Developer guide
-├── mw_crash.log           # Crash reports (intentional)
+├── app/                     # Application entry points
+│   ├── myworld.py            # Main CLI app
+│   ├── taskmgr_standalone.py # Task Manager standalone subprocess
+│   └── settings_standalone.py # Settings standalone subprocess
 │
-├── components/           # UI widgets
+├── api/                     # PUBLIC API LAYER (Core-API-UI)
 │   ├── __init__.py
-│   ├── completer.py      # Command auto-completion
-│   ├── footer.py        # Footer bar (cwd + hostname)
-│   ├── input_area.py   # Input TextArea + key bindings + command routing
-│   ├── logo.py        # ASCII logo renderer
-│   └── tips.py        # Tips display
+│   ├── theme_api.py          # Theme operations (get/set themes)
+│   └── system_api.py         # System data bridge to monitors
 │
-├── functions/           # Command handlers
-│   ├── __init__.py
-│   ├── help.py        # /help command handler
-│   ├── clear.py      # /clear command handler
-│   ├── quit.py      # /quit command handler
-│   ├── copy/        # /copy command module
-│   │   ├── __init__.py
-│   │   ├── copy_cmd.py
-│   │   └── copy_logic.py
-│   ├── sysinfo/      # /sysinfo command module
-│   │   ├── __init__.py
-│   │   ├── sysinfo_cmd.py
-│   │   └── sysinfo_logic.py
-│   ├── system/      # /system command module
-│   │   ├── __init__.py
-│   │   ├── system_cmd.py
-│   │   └── system_logic.py
-│   └── theme/      # /theme command module
-│       ├── __init__.py
-│       ├── theme_cmd.py
-│       └── theme_logic.py
+├── commands/                 # Command handlers
+│   ├── registry.py           # CENTRAL DISPATCHER (all /commands route here)
+│   ├── handles/            # Simple handlers (help, clear, quit)
+│   │   ├── help.py
+│   │   ├── clear.py
+│   │   └── quit.py
+│   └── functions/           # Complex command modules
+│       ├── copy/
+│       │   ├── copy_cmd.py
+│       │   └── copy_logic.py
+│       ├── sysinfo/
+│       │   ├── sysinfo_cmd.py
+│       │   └── sysinfo_logic.py
+│       ├── system/
+│       │   ├── system_cmd.py
+│       │   └── system_logic.py
+│       └── theme/
+│           ├── theme_cmd.py
+│           └── theme_logic.py   # Delegates to core/theme_engine.py
 │
-├── layout/            # Layout definitions
-│   ├── __init__.py
-│   └── taskmgr_layout.py # Task manager layout builder
+├── config/                   # SINGLE SOURCE OF TRUTH
+│   └── settings.json        # Theme, shortcuts, aliases, customs
 │
-├── modules/          # System monitoring modules
-│   ├── __init__.py
-│   ├── monitors/   # System monitors
-│   │   ├── __init__.py
-│   │   ├── base_monitor.py  # BaseMonitor class
-│   │   ├── cpu_monitor.py  # CPU graph monitor
-│   │   ├── ram_monitor.py  # RAM graph monitor
-│   │   ├── gpu_monitor.py  # GPU graph monitor (nvidia-ml-py)
-│   │   └── net_monitor.py  # Network I/O monitor
-│   ├── panels/
-│   │   ├── __init__.py
-│   │   └── detail_panel.py  # Detail panel for selected item
-│   ├── tabs/       # Task manager tabs
-│   │   ├── __init__.py
-│   │   ├── base_tab.py      # BaseTab class
-│   │   ├── performance_tab.py # CPU/RAM/GPU graphs tab
-│   │   ├── processes_tab.py   # Process list tab
-│   │   └── startup_tab.py   # Startup apps tab
-│   ├── tracker/
-│   │   ├── __init__.py
-│   │   └── history_tracker.py # Command result history
-│   └── utils/
-│       ├── __init__.py
-│       └── clipboard_manager.py
+├── core/                    # SINGLE SOURCE OF TRUTH (Core-API-UI)
+│   ├── config_manager.py      # Load/save settings.json
+│   ├── theme_engine.py      # get_current_theme_colors() at RENDER TIME
+│   ├── logger.py           # Crash logging to logs/
+│   └── constants.py        # Global constants (delegates to theme_engine)
 │
-├── screens/         # Screen containers
-│   ├── __init__.py
-│   ├── cmd_screen.py     # Command screen (main CLI view)
-│   ├── intro_screen.py   # Intro/hero screen
-│   └── taskmgr_screen.py # Task manager interface
+├── services/               # System data sources
+│   └── monitors/           # System monitors
+���       ├── base_monitor.py  # BaseMonitor class
+│       ├── cpu_monitor.py # CPU graph
+│       ├── ram_monitor.py # RAM graph
+│       ├── gpu_monitor.py # GPU graph
+│       └── net_monitor.py # Network graph
 │
-├── template/       # Response templates
-│   ├── __init__.py
-│   └── result_response.py # BaseResponseTemplate
+├── template/                # Response templates
+│   └── result_response.py  # BaseResponseTemplate
 │
-└── .venv/        # Virtual environment
+├── ui/                    # UI LAYER (presentation only)
+│   ├── components/         # Reusable widgets
+│   │   ├── completer.py   # DynamicCommandCompleter
+│   │   ├── footer.py
+│   │   ├── input_area.py
+│   │   ├── logo.py
+│   │   └── tips.py
+│   ├── layout/            # Layout builders
+│   │   ├── taskmgr_layout.py
+│   │   ├── settings_layout.py
+│   │   └── notification_layout.py  # Global Notification Service (Shared UI)
+│   ├── modules/           # UI STATE ONLY (NO core logic)
+│   │   ├── tabs/         # Tab modules (shared BaseTab)
+│   │   │   ├── base_tab.py           # Shared base class
+│   │   │   ├── taskmgr/             # Task Manager tabs
+│   │   │   │   ├── performance_tab.py
+│   │   │   │   ├── processes_tab.py
+│   │   │   │   └── startup_tab.py
+│   │   │   └── settings/            # Settings tabs (3 tabs)
+│   │   │       ├── general_tab.py   # General settings + theme selection
+│   │   │       ├── shortcuts_tab.py
+│   │   │       └── commands_tab.py
+│   │   ├── panels/       # Detail panels
+│   │   └── tracker/      # History tracker
+│   ├── screens/          # Screen containers
+│   │   ├── intro_screen.py
+│   │   ├── cmd_screen.py
+│   │   ├── taskmgr_screen.py
+│   │   └── settings_screen.py  # State Container for 3 settings tabs
+│   └── styles/           # Theme styles
+│       └── theme_styles.py
+│
+├── utils/                  # Utilities
+│   └── clipboard_manager.py
+│
+├── logs/                   # Log files (logs/mw-crash-debug.log)
+├── .venv/                  # Virtual environment
+└── run.bat                 # Launch script
 ```
 
-## 2. Component & File Responsibilities
+## 2. Architecture: Core-API-UI
 
-### Entry Point
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         UI LAYER                                 │
+│  (ui/screens/, ui/components/, ui/layout/, ui/modules/)          │
+│                                                                  │
+│  - Presentation only                                              │
+│  - Uses API to interact with Core                                 │
+│  - NO core logic (config, theme engine, logger here)             │
+│  - Calls get_current_theme_colors() at RENDER TIME               │
+└─────────────────────────────────────────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                         API LAYER                                │
+│  (api/theme_api.py, api/system_api.py)                           │
+│                                                                  │
+│  - Public interface for UI                                       │
+│  - Abstracts Core implementation                                  │
+│  - Example: theme_api.get_available_themes()                     │
+│  - Example: system_api.get_system_bridge()                         │
+└─────────────────────────────────────────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                         CORE LAYER                               │
+│  (core/, commands/, config/, services/)                          │
+│                                                                  │
+│  - Business logic and data management                            │
+│  - config/settings.json = SINGLE SOURCE OF TRUTH               │
+│  - theme_engine.get_current_theme_colors() = DYNAMIC at render     │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## 3. Component Responsibilities
+
+### Entry Points (app/)
 | File | Role |
 |------|------|
-| `myworld.py` | Main application bootstrap, screen routing, prompt_toolkit Application setup, Windows Terminal detection and relaunch |
+| `myworld.py` | Main CLI app, screen routing, Windows Terminal detection |
+| `taskmgr_standalone.py` | Task Manager subprocess |
+| `settings_standalone.py` | Settings subprocess |
 
-### Components (UI Widgets)
+### API Layer (api/)
 | File | Role |
 |------|------|
-| `components/input_area.py` | Creates TextArea widget, defines `accept_input()` command router, manages `log_to_buffer()` for output, key bindings (Ctrl+C/Q, Alt+Q, Ctrl+L, Alt+C, Ctrl+V, Shift+Up/Down), notification clearing |
-| `components/completer.py` | `DynamicCommandCompleter` class - provides tab completion for commands (`/theme`, `/sysinfo`, `/system`, `/copy`, etc.) |
-| `components/logo.py` | Generates "MYCOLOR" pixel art ASCII logo with gradient and shadow |
-| `components/footer.py` | Footer bar showing current working directory and hostname |
-| `components/tips.py` | Displays usage tips on intro screen |
+| `theme_api.py` | Public API for theme operations |
+| `system_api.py` | Bridge to services/monitors |
 
-### Screens (Layout Containers)
+### Core Layer (core/)
 | File | Role |
 |------|------|
-| `screens/intro_screen.py` | Hero/intro screen with logo + tips + input area, double-spring centering layout |
-| `screens/cmd_screen.py` | Main CLI screen with output buffer, history scrolling, notification toast system, mouse scroll handler |
-| `screens/taskmgr_screen.py` | `TaskManagerInterface` class - orchestrates tabs, detail panel, update loop |
+| `config_manager.py` | Load/save configuration, singleton pattern |
+| `theme_engine.py` | **DYNAMIC** theme colors at render time |
+| `logger.py` | Crash logging |
+| `constants.py` | Global constants (delegates to theme_engine) |
 
-### Functions (Command Handlers)
+### Commands (commands/)
 | File | Role |
 |------|------|
-| `functions/help.py` | Handles `/help` - lists available commands |
-| `functions/clear.py` | Handles `/clear` - clears output buffer |
-| `functions/quit.py` | Handles `/quit` - exits application |
-| `functions/theme/theme_cmd.py` | Parses `/theme` flags, delegates to theme_logic |
-| `functions/theme/theme_logic.py` | Theme management (4 themes: classic, matrix, cyber, darcula), config.json loading/saving, prompt_toolkit Style generation |
-| `functions/sysinfo/sysinfo_cmd.py` | Parses `/sysinfo` flags, formats output |
-| `functions/sysinfo/sysinfo_logic.py` | Gathers CPU, RAM, disk, display, input device info |
-| `functions/system/system_cmd.py` | Parses `/system` flags for task manager, handles `--kill` with confirmation state |
-| `functions/system/system_logic.py` | Process termination (PID/by-name), app launching, startup management |
-| `functions/copy/copy_cmd.py` | Handles `/copy` flags, triggers notifications |
-| `functions/copy/copy_logic.py` | History export/copy logic |
+| `registry.py` | **CENTRAL DISPATCHER** - all /commands route here |
+| `handles/help.py`, `clear.py`, `quit.py` | Simple handlers |
+| `functions/copy/*` | Copy command logic |
+| `functions/sysinfo/*` | System info command |
+| `functions/system/*` | System commands (taskmgr, etc.) |
+| `functions/theme/*` | Theme command |
 
-### Layout
+### Services Layer (services/)
 | File | Role |
 |------|------|
-| `layout/taskmgr_layout.py` | Builds task manager layout with tabs, graphs, sidebar; key bindings for navigation |
+| `monitors/base_monitor.py` | Base monitor with graph rendering |
+| `monitors/cpu_monitor.py` | CPU usage |
+| `monitors/ram_monitor.py` | RAM usage |
+| `monitors/gpu_monitor.py` | GPU monitoring |
+| `monitors/net_monitor.py` | Network I/O |
 
-### Modules (Monitors & Utilities)
+### UI Layer (ui/)
+| Directory | Role |
+|-----------|------|
+| `components/` | TextArea, completer, footer, logo, tips |
+| `layout/` | Layout builders + Global Notification Service |
+| `screens/` | Screen containers (State Containers for tabs) |
+| `modules/` | **UI STATE ONLY** - tabs, panels, tracker |
+
+**CRITICAL**: `ui/modules/` contains only UI-related modules. Core logic files belong in `core/`:
+- ❌ DO NOT put config_manager.py, theme_engine.py, logger.py here
+- ✅ Only ui/state modules (tabs, panels, tracker)
+
+### Utilities (utils/)
 | File | Role |
 |------|------|
-| `modules/tracker/history_tracker.py` | `HistoryTracker` class - stores last 10 command-result pairs in memory |
-| `modules/monitors/base_monitor.py` | `BaseMonitor` class - abstract base for graph monitors |
-| `modules/monitors/cpu_monitor.py` | CPU usage graph monitor |
-| `modules/monitors/ram_monitor.py` | RAM usage graph monitor |
-| `modules/monitors/gpu_monitor.py` | GPU usage graph monitor (requires nvidia-ml-py) |
-| `modules/monitors/net_monitor.py` | Network I/O rate monitor |
-| `modules/tabs/base_tab.py` | Base class for all tabs |
-| `modules/tabs/processes_tab.py` | Process list with selection |
-| `modules/tabs/performance_tab.py` | CPU/RAM/GPU/Network graph monitors |
-| `modules/tabs/startup_tab.py` | Startup applications list |
-| `modules/panels/detail_panel.py` | Detail panel for selected item |
-| `modules/utils/clipboard_manager.py` | Clipboard operations |
-
-### Templates
-| File | Role |
-|------|------|
-| `template/result_response.py` | `BaseResponseTemplate` function for standardized command help output |
-
-### Configuration
-| File | Role |
-|------|------|
-| `config.json` | Theme selection, window size, layout visibility, update intervals |
+| `clipboard_manager.py` | Clipboard operations |
 
 ---
 
-## 3. Core Logic & State Mapping
+## 4. Key Patterns
 
-### Command Buffer (`_result` Storage)
-- **Location**: `modules/tracker/history_tracker.py`
-- **Class**: `HistoryTracker`
-- **Storage**: `self.history` - list of dicts `{"command": str, "result": str}`
-- **Max entries**: 10 (oldest auto-removed)
-- **Access**: `get_history_tracker()` returns singleton `_history_tracker`
-
+### Theme Access (DYNAMIC)
 ```python
-# Usage pattern
-from modules.tracker.history_tracker import get_history_tracker
-tracker = get_history_tracker()
-tracker.start_new_entry(command_text)  # Call on Enter
-tracker.append_result(text)            # Append output with newlines
-tracker.get_entries()                  # Get all entries
+# UI fetches colors EVERY frame in render loops
+from core.theme_engine import get_current_theme_colors
+
+def render(self):
+    colors = get_current_theme_colors()  # DYNAMIC - not cached
+    primary = colors.get("primary")
 ```
 
-### Key Bindings (Input Area)
-
-| Shortcut | Action | Location |
-|---------|--------|----------|
-| `Ctrl+C` / `Ctrl+Q` | Exit application | input_area.py:464-468 |
-| `Alt+Q` | Exit application | input_area.py:470-473 |
-| `Ctrl+L` | Clear terminal | input_area.py:475-479 |
-| `Alt+C` | Clear input line | input_area.py:485-489 |
-| `Ctrl+V` | Paste from clipboard | input_area.py:491-500 |
-| `Shift+Up` | History previous | input_area.py:502-507 |
-| `Shift+Down` | History next | input_area.py:509-514 |
-| `Tab` | Command completion | completer.py |
-| `PageUp`/`PageDown` | Output scroll (10 lines) | cmd_screen.py:192-198 |
-| `ScrollUp`/`ScrollDown` | Output scroll (5 lines) | cmd_screen.py:200-206 |
-| `Mouse Scroll` | Output scroll (20 lines) | cmd_screen.py:138-148 |
-
-### Notification System
-
-**Location**: `screens/cmd_screen.py` (lines 64-129)
-
-**Components**:
-- `NotificationState` class - stores `show_notification`, `notification_message`, `notification_task`
-- `trigger_notification(message, is_success=True)` - shows toast with 5-second auto-hide
-- `clear_notification()` - dismisses current notification
-
-**Access Functions**:
+### Command Dispatch
 ```python
-from screens.cmd_screen import get_notification_trigger, get_notification_clearer
-get_notification_trigger()()   # Show notification
-get_notification_clearer()()  # Clear notification
+# commands/registry.py - CENTRAL DISPATCHER
+def dispatch(command_text):
+    if command_text.startswith("/theme"):
+        return handle_theme_command(command_text, ...)
+    elif command_text.startswith("/sysinfo"):
+        return handle_sysinfo_command(command_text, ...)
+    # ...
 ```
 
-### Help Registry (Dynamic Discovery)
-
-**Location**: `components/completer.py` (`DynamicCommandCompleter.commands` dict)
-
-**Commands**:
+### Data Bridge
 ```python
-self.commands = {
-    "/theme": ["--style", "--list", "--help", "-h"],
-    "/sysinfo": ["--g", "--cpu", "--ram", "--disk", "--display", "--input", "--help", "-h"],
-    "/system": ["--taskmgr", "--end-task", "--kill", "--run-new", "--d", "--e", "--help", "-h"],
-    "/copy": ["--last", "--export", "--help", "-h"],
-    "/help": [],
-    "/quit": [],
-    "/clear": [],
-}
-```
+# api/system_api.py - Bridge to monitors
+from services.monitors.cpu_monitor import CPUMonitor
 
-**Dynamic Discovery**: Auto-discovers command modules in `functions/` directory.
-
-### Command Routing
-
-**Location**: `components/input_area.py` `accept_input()` function
-
-```python
-if command_text.startswith("/theme"):   handle_theme_command(...)
-elif command_text.startswith("/sysinfo"): handle_sysinfo_command(...)
-elif command_text.startswith("/system"):  handle_system_command(...)
-elif command_text == "/help":             handle_help_command(...)
-elif command_text.startswith("/copy"):    handle_copy_command(...)
-elif command_text == "/clear":            handle_clear_command(...)
-elif command_text.lower() in ("pwd", "ls", "cd", "cls"):
-    # Shell command handlers
-elif command_text:                     # Execute as shell command
-```
-
-### config.json Schema
-
-```json
-{
-    "theme": "darcula",
-    "window_settings": {
-        "cols": 120,
-        "lines": 30,
-        "auto_resize": true,
-        "force_full_width": true
-    },
-    "layout_visibility": {
-        "performance": {
-            "show_sidebar": false,
-            "rendered_components": ["graphs"]
-        }
-    },
-    "process_update_interval": 3.0,
-    "net_max_speed_mbps": 100,
-    "last_export_path": "",
-    "show_system_processes": true,
-    "hide_system_exes": []
-}
+def get_cpu_monitor(self):
+    return CPUMonitor()
 ```
 
 ---
 
-## 4. Performance Optimizations
-
-### Singleton Console Pattern
-**Location**: `components/input_area.py`
-
-Module-level cached console and buffer instances with `truncate(0)` + `seek(0)` reuse pattern.
-
-### Hash-Based Cache Invalidation
-**Location**: `screens/cmd_screen.py`, `modules/tabs/processes_tab.py`
-
-Hash-based comparison skips re-rendering when data unchanged.
-
-### Static String Table
-**Location**: `modules/tabs/processes_tab.py`
-
-Pre-formatted ANSI strings using f-string padding instead of Rich.Table reconstruction.
-
-### Batch Process Calls
-**Location**: `modules/tabs/processes_tab.py`
-
-Single `oneshot()` call per process instead of individual attribute access.
-
----
-
-*Generated: Project Architecture Audit (Updated: 2026-04-17)*
+*Generated: Project Structure (Updated: 2026-04-29)*

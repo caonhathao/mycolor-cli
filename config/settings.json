@@ -1,0 +1,44 @@
+{
+    "window_settings": {
+        "cols": 120,
+        "lines": 30,
+        "auto_resize": true,
+        "force_full_width": true
+    },
+    "layout_visibility": {
+        "performance": {
+            "show_sidebar": false,
+            "rendered_components": [
+                "graphs"
+            ]
+        }
+    },
+    "process_update_interval": 0.5,
+    "net_max_speed_mbps": 100,
+    "last_export_path": "",
+    "show_system_processes": false,
+    "hide_system_exes": [],
+    "taskmgr": {
+        "process_limit": 20,
+        "exclude_system_apps": true
+    },
+    "customs": {
+        "theme": "classic",
+        "logo_style": "gradient",
+        "show_tips": true,
+        "show_logo_shadow": true,
+        "cursor_style": "block"
+    },
+    "shortcuts": {
+        "Ctrl+L": "/clear",
+        "Alt+Q": "/quit",
+        "Alt+C": "clear_input",
+        "Shift+Up": "history_prev",
+        "Shift+Down": "history_next"
+    },
+    "commands": {
+        "vscode": "code .",
+        "ll": "ls -la",
+        "grep": "grep --color=auto"
+    }
+}

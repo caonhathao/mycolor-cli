@@ -1,4 +1,4 @@
-import functions.theme.theme_logic
+from core.theme_engine import get_current_theme_colors, get_current_theme
 
 
 def BaseResponseTemplate(title, usage, flags_dict):
@@ -10,10 +10,10 @@ def BaseResponseTemplate(title, usage, flags_dict):
         usage (str): The usage instruction string.
         flags_dict (dict): A dictionary where keys are flags (e.g., "--help") and values are descriptions.
     """
-    current_theme = functions.theme.theme_logic.current_theme
-    get_pt_color_hex = functions.theme.theme_logic.get_pt_color_hex
-    primary_hex = get_pt_color_hex(current_theme["primary"])
-    secondary_hex = get_pt_color_hex(current_theme["secondary"])
+    colors = get_current_theme_colors()
+    theme = get_current_theme()
+    primary_hex = colors.get("primary")
+    secondary_hex = colors.get("secondary")
 
     # Header
     output = f"[{primary_hex} bold]{title}[/{primary_hex} bold]\n\n"

@@ -1,0 +1,22 @@
+{
+    "window_settings": {
+        "cols": 120,
+        "lines": 30,
+        "auto_resize": true,
+        "force_full_width": true
+    },
+    "layout_visibility": {
+        "performance": {
+            "show_sidebar": false,
+            "rendered_components": [
+                "graphs"
+            ]
+        }
+    },
+    "process_update_interval": 3.0,
+    "net_max_speed_mbps": 100,
+    "last_export_path": "",
+    "customs": {
+        "theme": "cyber"
+    }
+}

@@ -1,182 +1,210 @@
 # AGENTS.md - MYCOLOR CLI Developer Guide
 
-This document provides guidelines for AI agents working on the MYCOLOR CLI project.
-
 ## 1. Project Overview
 
-MYCOLOR CLI is a Python-based Terminal User Interface (TUI) application that provides a vibrant, premium command-line experience with system monitoring capabilities.
-
-- **Language**: Python 3.12+
-- **Entry Point**: `myworld.py`
-- **Tech Stack**: `prompt_toolkit` (UI), `rich` (styling), `psutil` (system metrics)
-- **Platform**: Windows (primary), requires Windows Terminal for TrueColor support
+MYCOLOR CLI is a Python 3.12+ TUI application with system monitoring.
+- **Entry Point**: `app/myworld.py`
+- **Tech Stack**: `prompt_toolkit`, `rich`, `psutil`
+- **Platform**: Windows (requires Windows Terminal for TrueColor)
+- **Architecture**: Core-API-UI layered architecture with singleton patterns
 
 ## 2. Build, Lint, and Test Commands
 
-### Running the Application
-
-```cmd
+```bash
+# Run application
 run.bat
-```
+.venv\Scripts\python.exe app\myworld.py
 
-Or directly with the virtual environment:
+# Run specific entry points
+.venv\Scripts\python.exe app\taskmgr_standalone.py
+.venv\Scripts\python.exe app\settings_standalone.py
 
-```cmd
-.venv\Scripts\python.exe myworld.py
-```
+# Single test
+.venv\Scripts\python.exe -m pytest tests\test_file.py::test_function_name -v
 
-### Linting and Type Checking
+# Test file
+.venv\Scripts\python.exe -m pytest tests\test_file.py -v
 
-This project does not have a configured linter or type checker. If you add one, prefer:
-- `ruff` for fast linting
-- `mypy` for type checking
+# All tests
+.venv\Scripts\python.exe -m pytest
 
-### Testing
+# Syntax check
+python -m py_compile path\to\file.py
 
-**No test framework is currently configured.** There are no test files in the codebase.
-
-To add testing:
-```cmd
-pip install pytest pytest-asyncio
-pytest                    # Run all tests
-pytest tests/              # Run tests in specific directory
-pytest -v                 # Verbose output
-pytest -k test_name       # Run specific test by name
+# Linting (if added)
+ruff check .
+mypy .
 ```
 
 ## 3. Code Style Guidelines
 
-### General Conventions
-
-- **Line Length**: Keep lines under 120 characters when practical
-- **Indentation**: 4 spaces (no tabs)
-- **Encoding**: UTF-8 (use `sys.stdout.reconfigure(encoding='utf-8')` for cross-shell compatibility)
-- **Line Endings**: LF (Unix-style) preferred; project uses Windows batch scripts
+### General
+- Line length: < 120 chars
+- Indentation: 4 spaces (no tabs)
+- Encoding: UTF-8 (`sys.stdout.reconfigure(encoding='utf-8')`)
 
 ### Naming Conventions
 
 | Type | Convention | Example |
 |------|------------|---------|
-| Classes | PascalCase | `BaseMonitor`, `DynamicCommandCompleter` |
-| Functions/Variables | snake_case | `get_input_text_area`, `handle_help_command` |
+| Classes | PascalCase | `BaseMonitor` |
+| Functions/Variables | snake_case | `get_input_text` |
 | Constants | UPPER_SNAKE_CASE | `HORIZONTAL = "─"` |
-| Private methods | Leading underscore | `_generate_graph_text` |
+| Private methods | Leading underscore | `_generate_graph` |
+| Modules | snake_case | `theme_engine` |
 
-### Imports
-
-Order imports in the following groups (separated by blank lines):
-
-1. Standard library (`os`, `sys`, `json`, `asyncio`)
-2. Third-party libraries (`rich`, `prompt_toolkit`)
-3. Custom modules (`functions.*`, `components.*`, `modules.*`)
+### Imports (3 groups, blank lines between)
 
 ```python
 import os
 import sys
-import asyncio
 
 from rich.console import Console
-from rich.panel import Panel
 
-from functions.theme.theme_logic import load_config
-from components.input_area import get_input_text_area
+from core.theme_engine import get_current_theme_colors
 ```
 
 ### Types
-
-The codebase does not currently use type hints extensively, but when adding new code:
-- Use type hints for function signatures and return types
-- Prefer `typing` module for complex types (`List`, `Dict`, `Optional`, `Union`)
-
 ```python
-def process_data(data: List[float], max_val: Optional[float] = None) -> str:
+from typing import List, Optional, Dict, Any
+
+def process_data(data: List[float], max_val: Optional[float] = None) -> Dict[str, Any]:
     ...
 ```
 
 ### Error Handling
-
-- Use try/except blocks with specific exception types when possible
-- For critical operations that crash the app, catch and log to `mw_crash.log`
+- Use specific exception types
+- Log critical errors to `logs/mw_crash.log`
 - Handle `PermissionError` by closing file handles before rewriting
-- Use broad `except Exception` only when error type is truly unknown
+- Use broad `except` only when error type is unknown
 
 ```python
 try:
     with open(config_path, "r") as f:
         config = json.load(f)
 except FileNotFoundError:
-    # Use default config
     config = {}
 except json.JSONDecodeError as e:
     log_to_buffer(f"[bold red]Config error: {e}[/bold red]")
 ```
 
-### Rich and prompt_toolkit Integration
+## 4. Rich + prompt_toolkit Integration (CRITICAL)
 
-**CRITICAL**: Never pass raw Rich objects directly to prompt_toolkit components.
+**Never pass raw Rich objects to prompt_toolkit.** Convert to ANSI first:
 
-- Convert Rich renderables to ANSI strings first:
 ```python
-from rich.console import Console
-import io
-
 def rich_to_ansi(renderable, width=80):
-    console = Console(file=io.StringIO(), force_terminal=True, width=width)
+    buffer = io.StringIO()
+    console = Console(file=buffer, force_terminal=True, width=width)
     console.print(renderable)
-    return console.file.getvalue()
-```
+    return buffer.getvalue()
 
-- prompt_toolkit `FormattedText` must be a list of tuples:
-```python
+# prompt_toolkit FormattedText must be list of tuples
 [('class:prompt-prefix', ' > '), ('style', 'text')]
+
+# Use ANSI() wrapper
+from prompt_toolkit.formatted_text import ANSI
+return ANSI(rich_to_ansi(renderable, width))
 ```
 
-### Visual Design
+## 5. Theme System (CRITICAL)
 
-- **Background**: Always use `#0d1117` (not default terminal black)
-- **Logo**: 2-block wide (`██`), use horizontal gradients (Cyan -> Purple -> Pink), include mesh shadow (`░`)
-- **Terminal Size**: Default 120x30, use `shutil.get_terminal_size()` for dynamic calculations
-- **Centering**: Calculate vertical padding dynamically using terminal size
+Data flow: `config/settings.json` → `core/config_manager.py` → `core/theme_engine.py` → UI
 
-## 4. Project Structure
+Always use `core.theme_engine`:
 
-```
-myworld.py           # Entry point, main app loop
-config.json          # Theme and window settings
-run.bat              # Launch script
-components/          # UI widgets (input_area, footer, logo, tips, completer)
-screens/             # Screen logic (intro, cmd, taskmgr)
-layout/              # Layout definitions (VSplit/HSplit containers)
-functions/          # Command handlers (theme, sysinfo, system, help, clear, quit)
-modules/monitors/    # System monitors (cpu, ram, gpu, net)
-utils/               # Utilities (clipboard_manager)
-template/            # Response templates
+```python
+from core.theme_engine import get_current_theme_colors
+
+# Fetch EVERY frame in render loops
+colors = get_current_theme_colors()
+primary = colors.get("primary")      # #A9B7C6 (Darcula)
+background = colors.get("background")  # #2B2B2B (Darcula)
 ```
 
-## 5. Workflow Rules
+**DO NOT USE**: `core.constants.THEME_COLORS`, `commands.functions.theme.theme_logic.current_theme`
 
-1. **Environment**: Always use `.venv/Scripts/python.exe`
-2. **Terminal**: Use Windows Terminal (`wt.exe`) for testing - required for TrueColor
-3. **Logging**: All errors redirect to `mw_crash.log`. Check this file before reporting issues
-4. **Auto-Fix**: If `ModuleNotFoundError` occurs, automatically run `pip install`
-5. **Relaunch**: If app detects non-Windows Terminal, it will auto-relaunch in wt.exe
-6. **Atomic Reset**: On startup, window size is forced to 120x30, buffer cleared, cursor reset to (0,0)
+### Theme Colors
 
-## 6. Cursor Rules Summary
+| Theme | Primary | Background | Success | Error |
+|-------|---------|-------------|---------|-------|
+| darcula | #A9B7C6 | #2B2B2B | #6A8759 | #CC7832 |
+| matrix | #00FF41 | #000500 | #00FF41 | #FF0040 |
+| cyber | #FF007F | #0f0913 | #00FF00 | #FF0000 |
 
-From `.cursorrules`:
-- Background color MUST be `#0d1117`
-- Logo must be 2-blocks wide with horizontal gradients
-- Convert Rich to ANSI before passing to prompt_toolkit
-- Force UTF-8 stdout encoding
-- Check `mw_crash.log` before asking user for feedback
+## 6. Visual & Layout Standards (CRITICAL)
 
-## 7. Adding New Commands
+- **Background**: `#2B2B2B` for Darcula (not `#0d1117` terminal black)
+- **Centering**: Use `shutil.get_terminal_size()` for dynamic vertical padding
+- **Logo**: 2-blocks wide (`██`), horizontal gradients (Cyan → Purple → Pink), mesh shadow (`░`)
+- **Footer**: Positioned 1-line gap below Input Box. Format: `[Path] | [PC Name]`
+- **Force UTF-8** stdout encoding for proper `██` rendering
 
-To add a new command (e.g., `/mycommand`):
+## 7. Project Structure
 
-1. Create `functions/mycommand/mycommand_logic.py` for business logic
-2. Create `functions/mycommand/mycommand_cmd.py` for command handler
-3. Add handler to `input_area.py` accept_input function
-4. Add completions to `components/completer.py` DynamicCommandCompleter
-5. Update `functions/__init__.py` if needed
+```
+E:\ProjectDev\cli\
+├── app/                    # Entry points (myworld.py, taskmgr_standalone.py)
+├── api/                    # Public API (theme_api.py)
+├── commands/               # Command handlers (functions/*, handles/*)
+├── config/                 # settings.json
+├── core/                   # SINGLE SOURCE OF TRUTH (theme_engine, config_manager)
+├── services/monitors/      # System monitors (cpu, ram, gpu, net)
+├── template/               # Response templates
+├── ui/                     # UI layer (components, layout, screens, styles)
+└── run.bat
+```
+
+## 8. Workflow Rules
+
+1. Use `.venv/Scripts/python.exe` for all Python execution
+2. Test only in Windows Terminal (`wt.exe`) for TrueColor support
+3. Auto-fix `ModuleNotFoundError` with `pip install`
+4. On startup: force 120x30 window, clear buffer, reset cursor to (0,0)
+5. Always check `mw_crash.log` before reporting issues
+6. If bug found, apply fix and re-run `run.bat` autonomously
+
+## 9. Adding New Commands
+
+1. Create `commands/functions/mycommand/mycommand_logic.py`
+2. Create `commands/functions/mycommand/mycommand_cmd.py`
+3. Add handler to `commands/registry.py`
+4. Add completions to `ui/components/completer.py`
+
+## 10. Key Singletons
+
+| Singleton | Accessor | Location |
+|-----------|---------|----------|
+| `ConfigManager` | `get_manager()` | core/config_manager.py |
+| `ThemeEngine` | `get_current_theme_colors()` | core/theme_engine.py |
+| `SystemDataBridge` | `get_system_bridge()` | api/system_api.py |
+| `HistoryTracker` | `get_history_tracker()` | ui/modules/tracker/history_tracker.py |
+
+## 11. Notification System (Global)
+
+Use the global notification system for user feedback:
+
+```python
+from ui.layout.notification_layout import get_notification_trigger
+
+trigger = get_notification_trigger()
+trigger("Operation successful!", is_success=True)  # Shows green box for 5s
+trigger("Error occurred!", is_success=False)        # Shows red box for 5s
+```
+
+- Notifications auto-hide after 5 seconds
+- Uses `Condition(lambda: show_notification and bool(message.strip()))` filter
+- Same visual style across all screens (Main, Settings, Task Manager)
+
+## 12. Common Tasks
+
+| Task | Command |
+|------|---------|
+| Run app | `run.bat` |
+| Syntax check | `python -m py_compile file.py` |
+| List themes | `python -c "from core.theme_engine import THEMES; print(list(THEMES.keys()))"` |
+| Switch theme | `/theme --style darcula` |
+
+---
+
+*Generated: MYCOLOR CLI Developer Guide (Updated: 2026-04-29)*
