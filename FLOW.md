@@ -59,7 +59,101 @@ application.style = get_app_style()
 
 ---
 
-## 2. Command Dispatch Flow
+## 2. Global Notification Flow
+
+The Global Notification Service is rendered in any screen's FloatContainer via `get_notification_float()`.
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│ TRIGGER SOURCES: API/Cmd/Settings                                 │
+├──────────────────────────────────────────────────────────────────────┤
+│ api/theme_api.py:set_theme()                                      │
+│ commands/functions/*:handle_*_command()                           │
+│ ui/modules/tabs/settings/general_tab.py:confirm_popup()           │
+└──────────────────────────────────────────────────────────────────────┘
+                               │
+                               ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│ GLOBAL SERVICE: ui/layout/notification_layout.py                  │
+├──────────────────────────────────────────────────────────────────────┤
+│ trigger = get_notification_trigger()                              │
+│ trigger("Operation successful!", is_success=True)                 │
+│     │                                                            │
+│     ▼                                                            │
+│ notification_layout.trigger_notification()                        │
+│     │                                                            │
+│     ▼                                                            │
+│ Global NotificationState → show_notification = True              │
+│ message = "Operation successful!"                                │
+│ is_success = True                                                │
+└──────────────────────────────────────────────────────────────────────┘
+                               │
+                               ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│ RENDER: Any screen's FloatContainer                              │
+├──────────────────────────────────────────────────────────────────────┤
+│ get_notification_float()                                          │
+│     │                                                            │
+│     ▼                                                            │
+│ Condition(lambda: show_notification and bool(message.strip()))    │
+│     │                                                            │
+│     ▼                                                            │
+│ Green box (5s) for success / Red box (5s) for error              │
+│ Auto-hide after timeout                                          │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 3. Settings Navigation & Theme Application Flow
+
+### Settings Navigation Flow
+
+```
+SettingsInterface (settings_screen.py - State Container)
+       │
+       ▼
+active_tab.handle_input()  # general_tab / shortcuts_tab / commands_tab
+       │
+       ▼
+Update parent.popup_options  # Set popup state
+       │
+       ▼
+app.invalidate()  # Trigger re-render
+       │
+       ▼
+Display Popup (confirmation dialog)
+       │
+       ▼
+confirm_popup() → Write to settings.json → Trigger Global Notification
+```
+
+### Theme Application Flow (Delayed Apply)
+
+```
+User selects theme in general_tab.py
+       │
+       ▼
+Write to settings.json via config_manager
+       │
+       ▼
+Trigger Global Notification: "Theme will apply after restart"
+       │
+       ▼
+UI remains same (current theme still active)
+       │
+       ▼
+User restarts app → early_window_resize() → load settings.json
+       │
+       ▼
+New theme colors applied at render time via get_current_theme_colors()
+```
+
+**Note**: Theme changes are NOT applied immediately. Users must restart the app to see changes.
+
+---
+
+## 4. Command Dispatch Flow
 
 All commands route through `commands/registry.py`.
 
@@ -129,7 +223,7 @@ All commands route through `commands/registry.py`.
 
 ---
 
-## 3. Data Flow (Monitors → API → UI)
+## 5. Data Flow (Monitors → API → UI)
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
@@ -170,7 +264,7 @@ All commands route through `commands/registry.py`.
 
 ---
 
-## 4. Application Lifecycle
+## 6. Application Lifecycle
 
 ### Entry Point (Main Process)
 
@@ -200,7 +294,7 @@ app/taskmgr_standalone.py
 
 ---
 
-## 5. Screen State Transitions
+## 7. Screen State Transitions
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -213,7 +307,7 @@ app/taskmgr_standalone.py
 
 ---
 
-## 6. Key Singletons
+## 8. Key Singletons
 
 | Singleton | Accessor | Location |
 |-----------|---------|----------|
@@ -225,7 +319,7 @@ app/taskmgr_standalone.py
 
 ---
 
-## 7. Log Files
+## 9. Log Files
 
 All logs managed by `core/logger.py` in `logs/` directory.
 
@@ -237,4 +331,4 @@ All logs managed by `core/logger.py` in `logs/` directory.
 
 ---
 
-*Generated: Flow Documentation (Updated: 2026-04-28)*
+*Generated: Flow Documentation (Updated: 2026-04-29)*

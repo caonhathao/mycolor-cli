@@ -99,11 +99,6 @@ def rich_to_ansi(renderable, width=80):
     console.print(renderable)
     return buffer.getvalue()
 
-# OR using capture method:
-with console.capture() as capture:
-    console.print(renderable)
-ansi_string = capture.get()
-
 # prompt_toolkit FormattedText must be list of tuples
 [('class:prompt-prefix', ' > '), ('style', 'text')]
 
@@ -212,4 +207,4 @@ trigger("Error occurred!", is_success=False)        # Shows red box for 5s
 
 ---
 
-*Generated: MYCOLOR CLI Developer Guide (Updated: 2026-04-28)*
+*Generated: MYCOLOR CLI Developer Guide (Updated: 2026-04-29)*

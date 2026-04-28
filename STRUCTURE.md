@@ -63,7 +63,8 @@ E:\ProjectDev\cli\
 │   │   └── tips.py
 │   ├── layout/            # Layout builders
 │   │   ├── taskmgr_layout.py
-│   │   └── settings_layout.py
+│   │   ├── settings_layout.py
+│   │   └── notification_layout.py  # Global Notification Service (Shared UI)
 │   ├── modules/           # UI STATE ONLY (NO core logic)
 │   │   ├── tabs/         # Tab modules (shared BaseTab)
 │   │   │   ├── base_tab.py           # Shared base class
@@ -71,9 +72,8 @@ E:\ProjectDev\cli\
 │   │   │   │   ├── performance_tab.py
 │   │   │   │   ├── processes_tab.py
 │   │   │   │   └── startup_tab.py
-│   │   │   └── settings/            # Settings tabs
-│   │   │       ├── general_tab.py
-│   │   │       ├── theme_tab.py
+│   │   │   └── settings/            # Settings tabs (3 tabs)
+│   │   │       ├── general_tab.py   # General settings + theme selection
 │   │   │       ├── shortcuts_tab.py
 │   │   │       └── commands_tab.py
 │   │   ├── panels/       # Detail panels
@@ -82,7 +82,7 @@ E:\ProjectDev\cli\
 │   │   ├── intro_screen.py
 │   │   ├── cmd_screen.py
 │   │   ├── taskmgr_screen.py
-│   │   └── settings_screen.py  # Container for settings tabs
+│   │   └── settings_screen.py  # State Container for 3 settings tabs
 │   └── styles/           # Theme styles
 │       └── theme_styles.py
 │
@@ -175,8 +175,8 @@ E:\ProjectDev\cli\
 | Directory | Role |
 |-----------|------|
 | `components/` | TextArea, completer, footer, logo, tips |
-| `layout/` | Layout builders |
-| `screens/` | Screen containers |
+| `layout/` | Layout builders + Global Notification Service |
+| `screens/` | Screen containers (State Containers for tabs) |
 | `modules/` | **UI STATE ONLY** - tabs, panels, tracker |
 
 **CRITICAL**: `ui/modules/` contains only UI-related modules. Core logic files belong in `core/`:
@@ -224,4 +224,4 @@ def get_cpu_monitor(self):
 
 ---
 
-*Generated: Project Structure (Updated: 2026-04-28)*
+*Generated: Project Structure (Updated: 2026-04-29)*
