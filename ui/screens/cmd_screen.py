@@ -27,10 +27,7 @@ import re
 
 from ui.components.footer import get_footer_container
 from ui.components.input_area import RoundedFrame
-
-# Thêm vào sau các dòng import
-_notification_trigger = None
-_notification_clear = None
+from ui.layout.notification_layout import get_notification_float
 
 
 def get_cmd_screen_container(input_area, output_buffer):
@@ -38,7 +35,6 @@ def get_cmd_screen_container(input_area, output_buffer):
     Returns the layout container for the Command Screen (OpenCode View).
     Sticky Bottom layout.
     """
-    global _notification_trigger, _notification_clear
     # Ensure history is read-only
     output_buffer.read_only = True
 
@@ -60,77 +56,6 @@ def get_cmd_screen_container(input_area, output_buffer):
     # Hook into text changed event
     output_buffer.buffer.on_text_changed += enforce_buffer_limit
 
-    # --- Notification State ---
-    class NotificationState:
-        def __init__(self):
-            self.show_notification = False
-            self.notification_task: asyncio.Task | None = None
-            self.notification_message = ""
-            self.cached_text = ""
-            self.cached_text_hash = 0
-            self.cached_lines = []
-
-        def get_sorted_coords(self):
-            return None, None
-
-    state = NotificationState()
-
-    def trigger_notification(message, is_success=True):
-        """Trigger a notification to display."""
-
-        # Color selection based on status (Theme Integration)
-        # Use standard rich colors that align with project classes
-        # Success -> Green, Error -> Red
-        color = "class:success" if is_success else "class:error"
-
-        # Box Construction
-        border = "┃"
-        h_padding = "    "  # Exactly 4 spaces horizontal padding
-
-        # Calculate dimensions
-        content_len = len(message)
-        inner_width = content_len + 8  # 4 spaces left + 4 spaces right
-
-        empty_line = f"{border}{' ' * inner_width}{border}"
-        content_line = f"{border}{h_padding}{message}{h_padding}{border}"
-
-        # Construct ANSI string using Rich
-        # Exactly 3 lines: Top Padding, Content, Bottom Padding
-        box_markup = f"[{color}]{empty_line}\n{content_line}\n{empty_line}[/{color}]"
-
-        buffer = io.StringIO()
-        console = Console(file=buffer, force_terminal=True, width=200)
-        console.print(box_markup, end="")
-        plain_text = buffer.getvalue()
-        state.notification_message = plain_text
-        state.show_notification = True
-
-        # Persistence with 5s timeout
-        async def hide_notification():
-            await asyncio.sleep(5)
-            state.show_notification = False
-            state.notification_message = ""
-            get_app().invalidate()
-
-        app = get_app()
-        if state.notification_task:
-            state.notification_task.cancel()
-        state.notification_task = app.create_background_task(hide_notification())
-
-    def clear_notification():
-        """Clear the current notification."""
-        state.show_notification = False
-        state.notification_message = ""
-
-    _notification_trigger = trigger_notification
-    _notification_clear = clear_notification
-    # Store trigger function globally for access from input_area
-    import sys
-
-    _notification_trigger = trigger_notification
-    _notification_clear = clear_notification
-
-    # Helper to sync cursor with output_buffer's cursor (allows manual scrolling)
     def get_buffer_cursor_position():
         return Point(x=0, y=output_buffer.document.cursor_position_row)
 
@@ -148,6 +73,14 @@ def get_cmd_screen_container(input_area, output_buffer):
         return NotImplemented
 
     # --- Content Generation with Caching ---
+    # Define state variable for caching (separate from notification state)
+    class ContentCache:
+        def __init__(self):
+            self.cached_text = ""
+            self.cached_text_hash = 0
+            self.cached_lines = []
+
+    content_cache = ContentCache()
 
     def get_formatted_content():
         import re
@@ -156,10 +89,10 @@ def get_cmd_screen_container(input_area, output_buffer):
         
         if not current_text:
             return []
-
+        
         # Logic-Gate: Check cache first
-        if current_text == state.cached_text and state.cached_lines:
-            return state.cached_lines
+        if current_text == content_cache.cached_text and content_cache.cached_lines:
+            return content_cache.cached_lines
 
         # Cache miss: compute expensive conversion
         try:
@@ -172,9 +105,9 @@ def get_cmd_screen_container(input_area, output_buffer):
             formatted = to_formatted_text(plain_text)
 
         # Update cache
-        state.cached_text = current_text
-        state.cached_text_hash = hash(current_text)
-        state.cached_lines = formatted
+        content_cache.cached_text = current_text
+        content_cache.cached_text_hash = hash(current_text)
+        content_cache.cached_lines = formatted
         
         return formatted
 
@@ -243,7 +176,7 @@ def get_cmd_screen_container(input_area, output_buffer):
         count = output_buffer.document.line_count
         return [(f"fg:{status_color}", f" Buffer: {count}/{MAX_LINES} ")]
 
-    # Wrap in FloatContainer for Completions
+    # Wrap in FloatContainer for Completions and Notifications
     return FloatContainer(
         content=root_split,
         floats=[
@@ -252,27 +185,6 @@ def get_cmd_screen_container(input_area, output_buffer):
                 ycursor=True,
                 content=CompletionsMenu(max_height=16, scroll_offset=1),
             ),
-            Float(
-                right=2,
-                top=1,
-                content=ConditionalContainer(
-                    content=Window(
-                        FormattedTextControl(
-                            text=lambda: ANSI(state.notification_message)
-                        ),
-                        height=Dimension(min=1),
-                        align=WindowAlign.CENTER,
-                    ),
-                    filter=Condition(lambda: state.show_notification),
-                ),
-            ),
+            get_notification_float(),
         ],
     )
-
-
-def get_notification_trigger():
-    return _notification_trigger
-
-
-def get_notification_clearer():
-    return _notification_clear

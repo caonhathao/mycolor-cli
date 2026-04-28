@@ -65,18 +65,24 @@ E:\ProjectDev\cli\
 │   │   ├── taskmgr_layout.py
 │   │   └── settings_layout.py
 │   ├── modules/           # UI STATE ONLY (NO core logic)
-│   │   ├── tabs/         # Task manager tabs
-│   │   │   ├── base_tab.py
-│   │   │   ├── performance_tab.py
-│   │   │   ├── processes_tab.py
-│   │   │   └── startup_tab.py
+│   │   ├── tabs/         # Tab modules (shared BaseTab)
+│   │   │   ├── base_tab.py           # Shared base class
+│   │   │   ├── taskmgr/             # Task Manager tabs
+│   │   │   │   ├── performance_tab.py
+│   │   │   │   ├── processes_tab.py
+│   │   │   │   └── startup_tab.py
+│   │   │   └── settings/            # Settings tabs
+│   │   │       ├── general_tab.py
+│   │   │       ├── theme_tab.py
+│   │   │       ├── shortcuts_tab.py
+│   │   │       └── commands_tab.py
 │   │   ├── panels/       # Detail panels
 │   │   └── tracker/      # History tracker
 │   ├── screens/          # Screen containers
 │   │   ├── intro_screen.py
 │   │   ├── cmd_screen.py
 │   │   ├── taskmgr_screen.py
-│   │   └── settings_screen.py
+│   │   └── settings_screen.py  # Container for settings tabs
 │   └── styles/           # Theme styles
 │       └── theme_styles.py
 │

@@ -3,7 +3,6 @@ from rich.table import Table
 from template.result_response import BaseResponseTemplate
 
 from .theme_logic import THEMES, set_theme, get_current_theme_colors
-from ui.styles.theme_styles import apply_theme_to_app
 
 
 def handle_theme_command(command_text, log_to_buffer, app_ref):
@@ -18,7 +17,7 @@ def handle_theme_command(command_text, log_to_buffer, app_ref):
             "Theme Manager",
             "/theme [flags]",
             {
-                "--style <name>": "Set a specific theme",
+                "--style <name>": "Set a specific theme (applied after restart)",
                 "--list": "List available themes",
                 "-h, --help": "Show this guide"
             }
@@ -32,11 +31,7 @@ def handle_theme_command(command_text, log_to_buffer, app_ref):
     elif len(parts) == 3 and parts[1] == "--style":
         style_name = parts[2]
         if set_theme(style_name):
-            apply_theme_to_app(app_ref)
-            new_colors = get_current_theme_colors()
-            success = new_colors.get("success", "#6A8759")
-            log_to_buffer(f"[bold {success}]Theme set to {style_name}[/bold {success}]")
-            app_ref.invalidate()
+            log_to_buffer(f"[bold {success_color}]Theme '{style_name}' saved! Changes will be applied after restarting the application.[/bold {success_color}]")
         else:
             log_to_buffer(f"[bold {error_color}]Error: Theme '{style_name}' not found. Use /theme --list to see options.[/bold {error_color}]")
     else:

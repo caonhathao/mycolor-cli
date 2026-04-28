@@ -11,7 +11,7 @@ from prompt_toolkit.formatted_text import ANSI
 from rich.console import Console
 
 from commands.functions.theme.theme_logic import get_current_theme_colors
-from .base_tab import BaseTab
+from ..base_tab import BaseTab
 from core.constants import config_manager
 
 UI_OFFSET = 5

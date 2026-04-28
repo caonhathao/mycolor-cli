@@ -6,10 +6,11 @@ MYCOLOR CLI is a Python 3.12+ TUI application with system monitoring.
 - **Entry Point**: `app/myworld.py`
 - **Tech Stack**: `prompt_toolkit`, `rich`, `psutil`
 - **Platform**: Windows (requires Windows Terminal for TrueColor)
+- **Architecture**: Core-API-UI layered architecture with singleton patterns
 
 ## 2. Build, Lint, and Test Commands
 
-```
+```bash
 # Run application
 run.bat
 .venv\Scripts\python.exe app\myworld.py
@@ -98,6 +99,11 @@ def rich_to_ansi(renderable, width=80):
     console.print(renderable)
     return buffer.getvalue()
 
+# OR using capture method:
+with console.capture() as capture:
+    console.print(renderable)
+ansi_string = capture.get()
+
 # prompt_toolkit FormattedText must be list of tuples
 [('class:prompt-prefix', ' > '), ('style', 'text')]
 
@@ -131,7 +137,15 @@ background = colors.get("background")  # #2B2B2B (Darcula)
 | matrix | #00FF41 | #000500 | #00FF41 | #FF0040 |
 | cyber | #FF007F | #0f0913 | #00FF00 | #FF0000 |
 
-## 6. Project Structure
+## 6. Visual & Layout Standards (CRITICAL)
+
+- **Background**: `#2B2B2B` for Darcula (not `#0d1117` terminal black)
+- **Centering**: Use `shutil.get_terminal_size()` for dynamic vertical padding
+- **Logo**: 2-blocks wide (`██`), horizontal gradients (Cyan → Purple → Pink), mesh shadow (`░`)
+- **Footer**: Positioned 1-line gap below Input Box. Format: `[Path] | [PC Name]`
+- **Force UTF-8** stdout encoding for proper `██` rendering
+
+## 7. Project Structure
 
 ```
 E:\ProjectDev\cli\
@@ -146,20 +160,14 @@ E:\ProjectDev\cli\
 └── run.bat
 ```
 
-## 7. Cursor Rules Summary
-
-- **Background**: `#2B2B2B` for Darcula (not `#0d1117` terminal black)
-- **Logo**: 2-blocks wide (`██`), horizontal gradients, mesh shadow (`░`)
-- **Convert Rich to ANSI** before prompt_toolkit
-- **Force UTF-8** stdout encoding
-- **Check logs**: Always verify `mw_crash.log` before reporting issues
-
 ## 8. Workflow Rules
 
-1. Use `.venv/Scripts/python.exe`
-2. Test only in Windows Terminal (`wt.exe`)
+1. Use `.venv/Scripts/python.exe` for all Python execution
+2. Test only in Windows Terminal (`wt.exe`) for TrueColor support
 3. Auto-fix `ModuleNotFoundError` with `pip install`
 4. On startup: force 120x30 window, clear buffer, reset cursor to (0,0)
+5. Always check `mw_crash.log` before reporting issues
+6. If bug found, apply fix and re-run `run.bat` autonomously
 
 ## 9. Adding New Commands
 
@@ -168,7 +176,32 @@ E:\ProjectDev\cli\
 3. Add handler to `commands/registry.py`
 4. Add completions to `ui/components/completer.py`
 
-## 10. Common Tasks
+## 10. Key Singletons
+
+| Singleton | Accessor | Location |
+|-----------|---------|----------|
+| `ConfigManager` | `get_manager()` | core/config_manager.py |
+| `ThemeEngine` | `get_current_theme_colors()` | core/theme_engine.py |
+| `SystemDataBridge` | `get_system_bridge()` | api/system_api.py |
+| `HistoryTracker` | `get_history_tracker()` | ui/modules/tracker/history_tracker.py |
+
+## 11. Notification System (Global)
+
+Use the global notification system for user feedback:
+
+```python
+from ui.layout.notification_layout import get_notification_trigger
+
+trigger = get_notification_trigger()
+trigger("Operation successful!", is_success=True)  # Shows green box for 5s
+trigger("Error occurred!", is_success=False)        # Shows red box for 5s
+```
+
+- Notifications auto-hide after 5 seconds
+- Uses `Condition(lambda: show_notification and bool(message.strip()))` filter
+- Same visual style across all screens (Main, Settings, Task Manager)
+
+## 12. Common Tasks
 
 | Task | Command |
 |------|---------|
@@ -179,4 +212,4 @@ E:\ProjectDev\cli\
 
 ---
 
-*Generated: MYCOLOR CLI Developer Guide*
+*Generated: MYCOLOR CLI Developer Guide (Updated: 2026-04-28)*

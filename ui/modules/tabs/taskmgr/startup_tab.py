@@ -8,7 +8,7 @@ from rich.console import Console
 from rich.table import Table
 
 from commands.functions.system.system_logic import get_startup_apps
-from .base_tab import BaseTab
+from ..base_tab import BaseTab
 from core.constants import config_manager, get_theme_primary, get_theme_color
 
 UI_OFFSET = 5

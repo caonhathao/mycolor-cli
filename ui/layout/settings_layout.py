@@ -2,6 +2,7 @@ from prompt_toolkit.filters import Condition
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout.containers import (
     ConditionalContainer,
+    DynamicContainer,
     Float,
     FloatContainer,
     HSplit,
@@ -13,6 +14,7 @@ from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.layout.dimension import Dimension
 
 from core.theme_engine import get_current_theme_colors
+from ui.layout.notification_layout import get_notification_float
 
 _current_interface = None
 
@@ -105,22 +107,24 @@ def build_settings_layout(interface):
         height=Dimension(weight=1),
     )
 
-    # Floating Pop-up Menu
-    popup_height = interface.popup_height
-    popup_window = Window(
-        content=FormattedTextControl(interface.get_popup_content, focusable=True),
-        style="bg:#21262d",
-        width=Dimension(min=1, preferred=20),
-        height=Dimension(min=1, preferred=popup_height),
-    )
+    # Popup visibility condition
+    show_popup = Condition(lambda: interface.popup_mode)
 
-    @Condition
-    def show_popup():
-        return interface.popup_mode
+    # Floating Pop-up Menu (dynamic height)
+    def get_popup_window():
+        colors = get_current_theme_colors()
+        bg_color = colors.get("suggestion_bg", "#3b4252")
+        border_color = colors.get("secondary", "#00FFFF")
+        height = interface.popup_height
+        return Window(
+            content=FormattedTextControl(interface.get_popup_content, focusable=True),
+            style=f"bg:{bg_color} fg:{border_color}",
+            width=Dimension(min=1, preferred=20),
+            height=Dimension(min=1, preferred=height),
+        )
 
-    # Wrap in ConditionalContainer for filter support
     popup_container = ConditionalContainer(
-        content=popup_window,
+        content=DynamicContainer(get_popup_window),
         filter=show_popup,
     )
 
@@ -128,14 +132,14 @@ def build_settings_layout(interface):
         content=popup_container,
         xcursor=False,
         ycursor=True,
-        left=22,
-        top=0,
+        left=18,
+        top=1,
     )
 
     # Root FloatContainer wrapping HSplit with floats
     root_container = FloatContainer(
         content=body,
-        floats=[popup_float],
+        floats=[popup_float, get_notification_float()],
     )
 
     return root_container, content_window

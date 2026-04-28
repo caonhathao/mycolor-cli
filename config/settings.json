@@ -23,7 +23,7 @@
         "exclude_system_apps": true
     },
     "customs": {
-        "theme": "cyber",
+        "theme": "classic",
         "logo_style": "gradient",
         "show_tips": true,
         "show_logo_shadow": true,

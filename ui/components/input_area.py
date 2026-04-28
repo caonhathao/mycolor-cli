@@ -233,10 +233,10 @@ def get_input_text_area(application_ref, output_buffer, on_accept=None):
         if on_accept:
             on_accept(buff)
 
-        from ui.screens.cmd_screen import get_notification_clearer
-        clear_notification = get_notification_clearer()
-        if clear_notification:
-            clear_notification()
+        from ui.layout.notification_layout import get_notification_trigger
+        clear_trigger = get_notification_trigger()
+        if callable(clear_trigger):
+            clear_trigger("", is_success=True)  # This will clear the notification
 
         if check_pending_confirmation(command_text, log_to_buffer):
             buff.reset()
@@ -269,7 +269,7 @@ def get_input_text_area(application_ref, output_buffer, on_accept=None):
             )
 
         def _get_notification_trigger():
-            from ui.screens.cmd_screen import get_notification_trigger
+            from ui.layout.notification_layout import get_notification_trigger
             return get_notification_trigger()
 
         notification_trigger = _get_notification_trigger()

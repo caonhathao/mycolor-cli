@@ -5,7 +5,7 @@ import threading
 import time
 import traceback
 from time import monotonic
-from .base_tab import BaseTab
+from ..base_tab import BaseTab
 from services.monitors.cpu_monitor import CPUMonitor
 from services.monitors.gpu_monitor import GPUMonitor
 from services.monitors.net_monitor import NetMonitor
