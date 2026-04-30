@@ -25,8 +25,8 @@ class CommandsTab(BaseTab):
 
         colors = get_current_theme_colors()
         primary_hex = colors["primary"]
-        secondary = colors.get("secondary", "#CC7832")
-        suggestion_bg = colors.get("suggestion_bg", "#3B3F41")
+        secondary = colors.get("secondary", colors.get("primary", ""))
+        suggestion_bg = colors.get("suggestion_bg", colors.get("primary", ""))
         table_text = colors.get("table_text", "white")
 
         ALIAS_COL = 20

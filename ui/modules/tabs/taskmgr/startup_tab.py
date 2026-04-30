@@ -59,10 +59,10 @@ class StartupTab(BaseTab):
             return self._cached_content
 
         primary_hex = get_theme_primary()
-        suggestion_bg = get_theme_color("suggestion_bg", "#3B3F41")
+        suggestion_bg = get_theme_color("suggestion_bg", get_theme_color("primary", ""))
         table_text = get_theme_color("table_text", "white")
-        success_color = get_theme_color("success", "#6A8759")
-        error_color = get_theme_color("error", "#CC7832")
+        success_color = get_theme_color("success", get_theme_color("primary", ""))
+        error_color = get_theme_color("error", get_theme_color("secondary", ""))
 
         console_width = max(10, term_width - 2)
         self._content_console.width = console_width

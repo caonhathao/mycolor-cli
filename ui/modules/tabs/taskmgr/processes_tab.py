@@ -139,11 +139,11 @@ class ProcessesTab(BaseTab):
                     threads: int, handles: int, cpu_pct: float, mem_pct: float,
                     is_selected: bool, colors: Dict[str, str]) -> str:
         w = COL_WIDTHS
-        pid_color = colors.get("primary", "#A9B7C6")
-        mem_color = colors.get("accent", colors.get("tab_accent", "#CC7832"))
+        pid_color = colors.get("primary", colors.get("secondary", ""))
+        mem_color = colors.get("accent", colors.get("tab_accent", colors.get("secondary", "")))
         primary_hex = colors.get("primary")
         secondary_hex = colors.get("secondary")
-        suggestion_bg = colors.get("suggestion_bg", "#3B3F41")
+        suggestion_bg = colors.get("suggestion_bg", colors.get("primary", ""))
         table_text = colors.get("table_text", "white")
 
         pid_col = f"[{pid_color}]{pid_str:<{w['pid']}}[/]"
@@ -171,10 +171,10 @@ class ProcessesTab(BaseTab):
         colors = get_current_theme_colors()
         w = COL_WIDTHS
         
-        primary_hex = colors.get("primary", "#A9B7C6")
+        primary_hex = colors.get("primary", colors.get("secondary", ""))
         table_text = colors.get("table_text", "white")
-        secondary_hex = colors.get("secondary", "#CC7832")
-        accent = colors.get("accent", colors.get("tab_accent", "#CC7832"))
+        secondary_hex = colors.get("secondary", colors.get("primary", ""))
+        accent = colors.get("accent", colors.get("tab_accent", colors.get("secondary", "")))
 
         _ANSI_BUFFER.seek(0)
         _ANSI_BUFFER.truncate(0)

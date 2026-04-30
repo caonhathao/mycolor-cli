@@ -111,11 +111,17 @@ class BaseMonitor:
         return graph_text
 
     def render(self, width, height, color=None, border_color=None, unit="%"):
-        colors = get_current_theme_colors()
+        theme_colors = get_current_theme_colors()
+        # Strict hierarchical lookup: specific key -> primary -> final safety (NO green)
         if color is None:
-            color = self._forced_color if self._forced_color else colors.get("monitor_graph", "#6A8759")
+            if self._forced_color:
+                color = self._forced_color
+            else:
+                color = theme_colors.get("monitor_graph", theme_colors.get("primary", "#FFFFFF"))
         if border_color is None:
-            border_color = colors.get("table_border", colors.get("monitor_graph", "#6A8759"))
+            border_color = theme_colors.get("table_border", 
+                          theme_colors.get("monitor_graph", 
+                          theme_colors.get("primary", "#FFFFFF")))
 
         # Calculate inner dimensions (accounting for border and padding)
         inner_width = max(1, width - 4)

@@ -223,7 +223,7 @@ class PerformanceTab(BaseTab):
         width, height = self._calculate_graph_dimensions()
 
         colors = get_current_theme_colors()
-        dim_color = colors.get("inactive_tab", "#888888")
+        dim_color = colors.get("inactive_tab", colors.get("primary"))
 
         if not self._has_data():
             _log_debug("PERF", "render_skeleton")

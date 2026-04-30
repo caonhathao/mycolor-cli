@@ -27,11 +27,11 @@ class GeneralTab(BaseTab):
 
         colors = get_current_theme_colors()
         primary_hex = colors["primary"]
-        secondary = colors.get("secondary", "#CC7832")
-        suggestion_bg = colors.get("suggestion_bg", "#3B3F41")
+        secondary = colors.get("secondary", colors.get("primary", ""))
+        suggestion_bg = colors.get("suggestion_bg", colors.get("primary", ""))
         table_text = colors.get("table_text", "white")
-        accent = colors.get("tab_accent", "#CC7832")
-        success = colors.get("success", "#6A8759")
+        accent = colors.get("tab_accent", colors.get("secondary", ""))
+        success = colors.get("success", colors.get("primary", ""))
 
         KEY_COL = 18
         VAL_COL = 20
