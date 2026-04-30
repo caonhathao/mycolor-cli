@@ -49,11 +49,6 @@ class SettingsInterface:
             self.TAB_COMMANDS: CommandsTab(self),
         }
 
-    def reload_settings(self):
-        self._settings = self.config_manager.reload()
-        self.shortcuts_items = list(self._settings.get("shortcuts", {}).items())
-        self.commands_items = list(self._settings.get("commands", {}).items())
-
     def get_header(self):
         colors = get_current_theme_colors()
         primary_hex = colors.get("primary")
@@ -76,14 +71,14 @@ class SettingsInterface:
         options = self.popup_options
         if not options:
             colors = get_current_theme_colors()
-            error_color = colors.get("error", "#CC7832")
+            error_color = colors.get("error", colors.get("primary", ""))
             fragments.append((f"fg:{error_color}", " [No data available] "))
             fragments.append(("", "\n"))
             return fragments
         colors = get_current_theme_colors()
-        bg_color = colors.get("suggestion_bg", "#3B3F41")
-        primary_fg = colors.get("primary", "#A9B7C6")
-        accent = colors.get("active_tab", "#CC7832")
+        bg_color = colors.get("suggestion_bg", colors.get("primary", ""))
+        primary_fg = colors.get("primary", "")
+        accent = colors.get("active_tab", colors.get("primary", ""))
         for i, option in enumerate(options):
             if i == self.popup_selected:
                 style = f"bg:{accent} fg:{bg_color} bold"
@@ -141,14 +136,14 @@ class SettingsInterface:
 
     def get_system_info(self):
         colors = get_current_theme_colors()
-        accent = colors.get("tab_accent", "#CC7832")
-        primary = colors.get("primary", "#A9B7C6")
-        secondary = colors.get("secondary", "#CC7832")
+        accent = colors.get("tab_accent", colors.get("primary", ""))
+        primary = colors.get("primary", "")
+        secondary = colors.get("secondary", colors.get("primary", ""))
         if self.edit_mode or self.popup_mode or self.listening_mode:
-            edit_color = colors.get("warning", "#FFFF00")
+            edit_color = colors.get("warning", colors.get("secondary", ""))
             return HTML(f'<span color="{edit_color}">EDIT MODE</span>')
         elif self.pending_changes:
-            pending_color = colors.get("error", "#CC7832")
+            pending_color = colors.get("error", colors.get("secondary", ""))
             return HTML(f'<span color="{pending_color}">{len(self.pending_changes)} changes</span>')
         else:
             hostname = socket.gethostname()
@@ -227,11 +222,6 @@ class SettingsInterface:
             selected_value = options[self.popup_selected]
             self._settings["customs"][key] = selected_value
             self.save_all()
-            if key == "theme":
-                from ui.layout.notification_layout import get_notification_trigger
-                trigger = get_notification_trigger()
-                if callable(trigger):
-                    trigger("Theme saved! Changes will be applied after restarting.", is_success=True)
         elif category == "command":
             if key == "add":
                 alias = "new_alias"
@@ -241,6 +231,7 @@ class SettingsInterface:
                 self.save_all()
 
         self.cancel_popup()
+        self._notify_restart_required()
         return True
 
     def cancel_popup(self):
@@ -287,6 +278,7 @@ class SettingsInterface:
             self.edit_value = ""
             self.pending_changes[category] = True
             self.save_all()
+            self._notify_restart_required()
 
         self._data_changed = True
 
@@ -295,6 +287,12 @@ class SettingsInterface:
         self.edit_key = None
         self.edit_value = ""
         self._data_changed = True
+
+    def _notify_restart_required(self):
+        from ui.layout.notification_layout import get_notification_trigger
+        trigger = get_notification_trigger()
+        if callable(trigger):
+            trigger("Settings saved! Changes will take effect after restart.", is_success=True)
 
     def save_all(self):
         with self._settings_lock:

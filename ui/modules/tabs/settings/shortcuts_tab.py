@@ -109,6 +109,7 @@ class ShortcutsTab(BaseTab):
             self.parent.shortcuts_items = list(self.parent._settings["shortcuts"].items())
             self.selected = min(self.selected, len(self.parent.shortcuts_items) - 1)
             self.parent.save_all()
+            self.parent._notify_restart_required()
 
     def capture_key_combo(self, key_name):
         if self.parent.listening_mode:
@@ -121,6 +122,7 @@ class ShortcutsTab(BaseTab):
             self.parent._settings["shortcuts"][self.parent.pending_shortcut_key] = "custom_action"
             self.parent.shortcuts_items = list(self.parent._settings["shortcuts"].items())
             self.parent.save_all()
+            self.parent._notify_restart_required()
             return True
         return False
 

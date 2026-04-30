@@ -99,10 +99,12 @@ class GeneralTab(BaseTab):
             customs["show_tips"] = not customs.get("show_tips", True)
             self.parent._settings["customs"] = customs
             self.parent.save_all()
+            self.parent._notify_restart_required()
         elif key == "show_logo_shadow":
             customs["show_logo_shadow"] = not customs.get("show_logo_shadow", True)
             self.parent._settings["customs"] = customs
             self.parent.save_all()
+            self.parent._notify_restart_required()
 
     def handle_delete(self):
         pass

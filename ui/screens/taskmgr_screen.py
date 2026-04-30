@@ -64,13 +64,15 @@ class TaskManagerInterface:
 
         self.detail_panel = DetailPanel()
 
+        # Read settings once at boot - restart required for changes
+        self._process_update_interval = config_manager.get().get("process_update_interval", 0.5)
+
         self._worker_thread = threading.Thread(target=self._background_worker, daemon=True)
         self._worker_thread.start()
 
         perf_tab = self.tabs[self.TAB_PERFORMANCE]
         if hasattr(perf_tab, 'start_workers'):
-            interval = config_manager.get().get("process_update_interval", 0.5)
-            perf_tab.start_workers(interval)
+            perf_tab.start_workers(self._process_update_interval)
 
         self._data_changed = True
 
@@ -118,8 +120,8 @@ class TaskManagerInterface:
             except Exception:
                 worker_logger.log_error("_background_worker", traceback.format_exc())
 
-            interval = config_manager.get().get("process_update_interval", 0.5)
-            self._stop_event.wait(interval)
+            # Use interval captured at boot - no runtime re-read
+            self._stop_event.wait(self._process_update_interval)
 
         try:
             perf_tab = self.tabs[self.TAB_PERFORMANCE]
@@ -146,6 +148,10 @@ class TaskManagerInterface:
             interval = config_manager.get().get("process_update_interval", 0.5)
             new_tab.start_workers(interval)
         
+        # Restart required for interval changes - do not re-read config here
+        if hasattr(new_tab, 'start_workers'):
+            new_tab.start_workers(self._process_update_interval)
+
         with self._data_lock:
             self._data_changed = True
             if hasattr(new_tab, 'last_fetch_time'):

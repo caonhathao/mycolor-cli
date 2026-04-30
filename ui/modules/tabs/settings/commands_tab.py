@@ -98,6 +98,7 @@ class CommandsTab(BaseTab):
             self.parent.commands_items = list(self.parent._settings["commands"].items())
             self.selected = min(self.selected, len(self.parent.commands_items) - 1)
             self.parent.save_all()
+            self.parent._notify_restart_required()
 
     def on_activate(self):
         self.selected = 0
