@@ -244,7 +244,7 @@ def get_input_text_area(application_ref, output_buffer, on_accept=None):
 
         theme_colors = get_current_theme_colors()
         primary_hex = theme_colors.get("primary")
-        suggestion_bg = theme_colors.get("suggestion_bg", "#21262d")
+        suggestion_bg = theme_colors.get("suggestion_bg", "#3B3F41")
         table_text = theme_colors.get("table_text", "white")
 
         if command_text:

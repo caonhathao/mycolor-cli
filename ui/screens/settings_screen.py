@@ -75,16 +75,18 @@ class SettingsInterface:
         fragments = []
         options = self.popup_options
         if not options:
-            fragments.append(("fg:#FF0000", " [No data available] "))
+            colors = get_current_theme_colors()
+            error_color = colors.get("error", "#CC7832")
+            fragments.append((f"fg:{error_color}", " [No data available] "))
             fragments.append(("", "\n"))
             return fragments
         colors = get_current_theme_colors()
-        bg_color = colors.get("suggestion_bg", "#3b4252")
+        bg_color = colors.get("suggestion_bg", "#3B3F41")
         primary_fg = colors.get("primary", "#A9B7C6")
         accent = colors.get("active_tab", "#CC7832")
         for i, option in enumerate(options):
             if i == self.popup_selected:
-                style = f"bg:{accent} fg:#000000 bold"
+                style = f"bg:{accent} fg:{bg_color} bold"
             else:
                 style = f"bg:{bg_color} fg:{primary_fg}"
             fragments.append((style, f" {option} ".ljust(20)))
@@ -94,6 +96,7 @@ class SettingsInterface:
     def get_tabs(self):
         colors = get_current_theme_colors()
         primary_hex = colors.get("primary")
+        inactive_color = colors.get("inactive_tab", "#888888")
         tab_names = ["General", "Shortcuts", "Commands"]
 
         parts = []
@@ -101,7 +104,7 @@ class SettingsInterface:
             if i == self.active_tab:
                 parts.append(f'<b><span color="{primary_hex}">[{tab}]</span></b>')
             else:
-                parts.append(f'<span color="#555555">[{tab}]</span>')
+                parts.append(f'<span color="{inactive_color}">[{tab}]</span>')
 
         return HTML('  '.join(parts))
 
@@ -115,8 +118,9 @@ class SettingsInterface:
                 f'<span color="{accent}">[Esc/Q]</span> Cancel'
             )
         elif self.listening_mode:
+            listening_color = colors.get("warning", "#FFFF00")
             return HTML(
-                f'<span color="#FFFF00">Listening...</span> Press key combo  |  '
+                f'<span color="{listening_color}">Listening...</span> Press key combo  |  '
                 f'<span color="{accent}">[Esc/Q]</span> Cancel'
             )
         elif self.edit_mode:
@@ -141,9 +145,11 @@ class SettingsInterface:
         primary = colors.get("primary", "#A9B7C6")
         secondary = colors.get("secondary", "#CC7832")
         if self.edit_mode or self.popup_mode or self.listening_mode:
-            return HTML('<span color="#FFFF00">EDIT MODE</span>')
+            edit_color = colors.get("warning", "#FFFF00")
+            return HTML(f'<span color="{edit_color}">EDIT MODE</span>')
         elif self.pending_changes:
-            return HTML(f'<span color="#FF8800">{len(self.pending_changes)} changes</span>')
+            pending_color = colors.get("error", "#CC7832")
+            return HTML(f'<span color="{pending_color}">{len(self.pending_changes)} changes</span>')
         else:
             hostname = socket.gethostname()
             return HTML(f'<span color="{primary}">E:\\ProjectDev\\cli</span> <span color="{accent}">|</span> <span color="{secondary}">{hostname}</span> <span color="{accent}">|</span> <span color="{primary}">v0.0.1</span>')

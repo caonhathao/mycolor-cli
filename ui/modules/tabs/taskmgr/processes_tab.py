@@ -140,10 +140,10 @@ class ProcessesTab(BaseTab):
                     is_selected: bool, colors: Dict[str, str]) -> str:
         w = COL_WIDTHS
         pid_color = colors.get("primary", "#A9B7C6")
-        mem_color = colors.get("accent", "#CC7832")
+        mem_color = colors.get("accent", colors.get("tab_accent", "#CC7832"))
         primary_hex = colors.get("primary")
         secondary_hex = colors.get("secondary")
-        suggestion_bg = colors.get("suggestion_bg", "#21262d")
+        suggestion_bg = colors.get("suggestion_bg", "#3B3F41")
         table_text = colors.get("table_text", "white")
 
         pid_col = f"[{pid_color}]{pid_str:<{w['pid']}}[/]"
@@ -173,8 +173,8 @@ class ProcessesTab(BaseTab):
         
         primary_hex = colors.get("primary", "#A9B7C6")
         table_text = colors.get("table_text", "white")
-        secondary_hex = colors.get("secondary", "#FFFFFF")
-        accent = colors.get("accent", "#00FF88")
+        secondary_hex = colors.get("secondary", "#CC7832")
+        accent = colors.get("accent", colors.get("tab_accent", "#CC7832"))
 
         _ANSI_BUFFER.seek(0)
         _ANSI_BUFFER.truncate(0)

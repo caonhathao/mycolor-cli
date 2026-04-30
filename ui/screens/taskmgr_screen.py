@@ -236,7 +236,7 @@ class TaskManagerInterface:
     def get_tabs_control(self):
         colors = get_current_theme_colors()
         primary_hex = colors.get("primary")
-        tab_accent = colors.get("tab_accent", "#FFFF00")
+        tab_accent = colors.get("tab_accent", "#CC7832")
         inactive_tab_color = colors.get("inactive_tab", "#888888")
         header_text = colors.get("header_text", "white")
         tab_names = ["Processes", "Performance", "Startup"]

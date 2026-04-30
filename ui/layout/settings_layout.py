@@ -113,8 +113,8 @@ def build_settings_layout(interface):
     # Floating Pop-up Menu (dynamic height)
     def get_popup_window():
         colors = get_current_theme_colors()
-        bg_color = colors.get("suggestion_bg", "#3b4252")
-        border_color = colors.get("secondary", "#00FFFF")
+        bg_color = colors.get("suggestion_bg", "#3B3F41")
+        border_color = colors.get("secondary", "#CC7832")
         height = interface.popup_height
         return Window(
             content=FormattedTextControl(interface.get_popup_content, focusable=True),

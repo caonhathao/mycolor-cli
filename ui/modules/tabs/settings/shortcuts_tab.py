@@ -27,15 +27,16 @@ class ShortcutsTab(BaseTab):
 
         colors = get_current_theme_colors()
         primary_hex = colors["primary"]
-        suggestion_bg = colors.get("suggestion_bg", "#21262d")
-        table_text = colors.get("table_text", "#BBBBBB")
+        secondary = colors.get("secondary", "#CC7832")
+        suggestion_bg = colors.get("suggestion_bg", "#3B3F41")
+        table_text = colors.get("table_text", "white")
         accent = colors.get("tab_accent", "#CC7832")
 
         KEY_COL = 20
         ACTION_COL = 30
         DESC_COL = 35
 
-        self._ansi_console.print(f"[bold #00FFFF]{'KEY':<{KEY_COL}}[/][bold white]{'ACTION':<{ACTION_COL}}[/][bold #00FF88]{'DESCRIPTION':<{DESC_COL}}[/]")
+        self._ansi_console.print(f"[bold {secondary}]{'KEY':<{KEY_COL}}[/][bold {table_text}]{'ACTION':<{ACTION_COL}}[/][bold {accent}]{'DESCRIPTION':<{DESC_COL}}[/]")
         self._ansi_console.print("[dim]" + "─" * (KEY_COL + ACTION_COL + DESC_COL) + "[/dim]")
 
         shortcuts = self.parent._settings.get("shortcuts", {})
@@ -51,7 +52,7 @@ class ShortcutsTab(BaseTab):
         for i, (key, action) in enumerate(items):
             is_selected = (i == self.selected)
             desc = descriptions.get(action, "")
-            row = f"[#00FFFF]{key:<{KEY_COL}}[/][{table_text}]{action:<{ACTION_COL}}[/][{accent}]{desc:<{DESC_COL}}[/]"
+            row = f"[{secondary}]{key:<{KEY_COL}}[/][{table_text}]{action:<{ACTION_COL}}[/][{accent}]{desc:<{DESC_COL}}[/]"
             if is_selected:
                 self._ansi_console.print(f"[on {suggestion_bg}]{row}[/on {suggestion_bg}]")
             else:

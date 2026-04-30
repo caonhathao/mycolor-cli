@@ -27,15 +27,17 @@ class GeneralTab(BaseTab):
 
         colors = get_current_theme_colors()
         primary_hex = colors["primary"]
-        suggestion_bg = colors.get("suggestion_bg", "#21262d")
-        table_text = colors.get("table_text", "#BBBBBB")
+        secondary = colors.get("secondary", "#CC7832")
+        suggestion_bg = colors.get("suggestion_bg", "#3B3F41")
+        table_text = colors.get("table_text", "white")
         accent = colors.get("tab_accent", "#CC7832")
+        success = colors.get("success", "#6A8759")
 
         KEY_COL = 18
         VAL_COL = 20
         DESC_COL = 25
 
-        self._ansi_console.print(f"[bold #00FFFF]{'SETTING':<{KEY_COL}}[/][bold white]{'VALUE':<{VAL_COL}}[/][bold #00FF88]{'DESCRIPTION':<{DESC_COL}}[/]")
+        self._ansi_console.print(f"[bold {secondary}]{'SETTING':<{KEY_COL}}[/][bold {table_text}]{'VALUE':<{VAL_COL}}[/][bold {accent}]{'DESCRIPTION':<{DESC_COL}}[/]")
         self._ansi_console.print("[dim]" + "─" * (KEY_COL + VAL_COL + DESC_COL) + "[/dim]")
 
         customs = self.parent._settings.get("customs", {})
@@ -55,7 +57,7 @@ class GeneralTab(BaseTab):
 
         for i, (key, val, desc) in enumerate(items):
             is_selected = (i == self.selected)
-            row = f"[#00FFFF]{key:<{KEY_COL}}[/][{table_text}]{val:<{VAL_COL}}[/][{accent}]{desc:<{DESC_COL}}[/]"
+            row = f"[{secondary}]{key:<{KEY_COL}}[/][{table_text}]{val:<{VAL_COL}}[/][{accent}]{desc:<{DESC_COL}}[/]"
             if is_selected:
                 self._ansi_console.print(f"[on {suggestion_bg}]{row}[/on {suggestion_bg}]")
             else:

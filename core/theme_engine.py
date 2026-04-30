@@ -26,6 +26,11 @@ THEMES = {
         "header_bg": "#1c1c1c",
         "header_text": "#888888",
         "cursor": "#494949",
+        "placeholder": "#666666",
+        "dim_text": "#666666",
+        "footer_text": "#444444",
+        "popup_text": "#BBBBBB",
+        "selected_fg": "#000000",
     },
     "matrix": {
         "primary": "#00FF41",
@@ -48,6 +53,11 @@ THEMES = {
         "header_bg": "#000500",
         "header_text": "#00FF41",
         "cursor": "#00FF41",
+        "placeholder": "#006600",
+        "dim_text": "#006600",
+        "footer_text": "#004400",
+        "popup_text": "#00FF41",
+        "selected_fg": "#000500",
     },
     "cyber": {
         "primary": "#FF007F",
@@ -70,6 +80,11 @@ THEMES = {
         "header_bg": "#0f0913",
         "header_text": "#FF007F",
         "cursor": "#FF007F",
+        "placeholder": "#bd5aff",
+        "dim_text": "#bd5aff",
+        "footer_text": "#501078",
+        "popup_text": "#bd5aff",
+        "selected_fg": "#0f0913",
     },
     "darcula": {
         "primary": "#A9B7C6",
@@ -92,6 +107,11 @@ THEMES = {
         "header_bg": "#2B2B2B",
         "header_text": "#A9B7C6",
         "cursor": "#A9B7C6",
+        "placeholder": "#606366",
+        "dim_text": "#606366",
+        "footer_text": "#3B3F41",
+        "popup_text": "#A9B7C6",
+        "selected_fg": "#000000",
     },
 }
 
@@ -211,6 +231,11 @@ def get_current_theme_colors():
         "header_text": get_pt_color_hex(theme.get("header_text", "white")),
         "cursor": theme.get("cursor", "white"),
         "accent": theme.get("tab_accent", "#FFFF00"),
+        "placeholder": theme.get("placeholder", "#666666"),
+        "dim_text": theme.get("dim_text", "#666666"),
+        "footer_text": theme.get("footer_text", "#444444"),
+        "popup_text": theme.get("popup_text", "#BBBBBB"),
+        "selected_fg": theme.get("selected_fg", "#000000"),
     }
 
 

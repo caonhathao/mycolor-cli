@@ -25,13 +25,14 @@ class CommandsTab(BaseTab):
 
         colors = get_current_theme_colors()
         primary_hex = colors["primary"]
-        suggestion_bg = colors.get("suggestion_bg", "#21262d")
-        table_text = colors.get("table_text", "#BBBBBB")
+        secondary = colors.get("secondary", "#CC7832")
+        suggestion_bg = colors.get("suggestion_bg", "#3B3F41")
+        table_text = colors.get("table_text", "white")
 
         ALIAS_COL = 20
         CMD_COL = 35
 
-        self._ansi_console.print(f"[bold #00FFFF]{'ALIAS':<{ALIAS_COL}}[/][bold white]{'COMMAND':<{CMD_COL}}[/]")
+        self._ansi_console.print(f"[bold {secondary}]{'ALIAS':<{ALIAS_COL}}[/][bold {table_text}]{'COMMAND':<{CMD_COL}}[/]")
         self._ansi_console.print("[dim]" + "─" * (ALIAS_COL + CMD_COL) + "[/dim]")
 
         commands = self.parent._settings.get("commands", {})
@@ -39,7 +40,7 @@ class CommandsTab(BaseTab):
 
         for i, (alias, cmd) in enumerate(items):
             is_selected = (i == self.selected)
-            row = f"[#00FFFF]{alias:<{ALIAS_COL}}[/][{table_text}]{cmd:<{CMD_COL}}[/]"
+            row = f"[{secondary}]{alias:<{ALIAS_COL}}[/][{table_text}]{cmd:<{CMD_COL}}[/]"
             if is_selected:
                 self._ansi_console.print(f"[on {suggestion_bg}]{row}[/on {suggestion_bg}]")
             else:

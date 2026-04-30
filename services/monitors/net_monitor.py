@@ -6,6 +6,7 @@ from rich.console import Console, Group
 from rich.panel import Panel
 
 from .base_monitor import BaseMonitor
+from core.theme_engine import get_current_theme_colors
 
 
 class DynamicSpeedScaler:
@@ -159,10 +160,11 @@ class NetMonitor(BaseMonitor):
         return self._format_speed(self.scaler.current_max)
 
     def render(self, width, height, color=None, border_color=None, unit=""):
+        colors = get_current_theme_colors()
         if color is None:
-            color = self.color
+            color = colors.get("monitor_graph", "#6A8759")
         if border_color is None:
-            border_color = self.color
+            border_color = colors.get("table_border", colors.get("monitor_graph", "#6A8759"))
 
         ceiling_label = self._get_ceiling_label()
 

@@ -116,7 +116,7 @@ def _generate_logo_grid(
         h = s.lstrip("#")
         if len(h) >= 6:
             return "#" + h[:6].lower()
-        return "#000000"
+        return "#888888"
 
     gradient_hex = [_ensure_hex6(c) for c in gradient_colors_str]
 
@@ -151,7 +151,7 @@ def _generate_logo_grid(
     def get_color(x_ratio):
         n = len(gradient_hex)
         if n < 2:
-            return gradient_hex[0] if n else "#ffffff"
+            return gradient_hex[0] if n else "#A9B7C6"
         segment_len = 1.0 / (n - 1)
         idx = min(int(x_ratio / segment_len), n - 2)
         idx = max(0, idx)
@@ -199,7 +199,7 @@ def generate_logo_rich_text(
                 return f"#{t.red:02x}{t.green:02x}{t.blue:02x}"
             except Exception:
                 pass
-        return "#ffffff"
+        return "#A9B7C6"
 
     logo_gradient = theme.get("logo_gradient")
     if logo_gradient and isinstance(logo_gradient, list) and len(logo_gradient) >= 2:
@@ -213,7 +213,7 @@ def generate_logo_rich_text(
         shadow_hex = f"#{t.red:02x}{t.green:02x}{t.blue:02x}"
     except Exception:
         shadow_hex = _get_hex(theme.get("logo_shadow"))
-    bg_hex = theme.get("background", "#0d1117")
+    bg_hex = theme.get("background", "#1c1c1c")
     if background_color_hex and len(background_color_hex.lstrip("#")) >= 6:
         bg_hex = "#" + background_color_hex.lstrip("#")[:6].lower()
 
@@ -276,6 +276,6 @@ def get_logo_renderable(width: int, theme: dict):
         return Align.center(raw_logo_text)
     except Exception:
         raw_logo_text = Text(
-            "MYWORLD", style=Style(color="#a020f0", bgcolor=theme["background"])
+            "MYCOLOR", style=Style(color=theme.get("primary", "#A9B7C6"), bgcolor=theme.get("background", "#1c1c1c"))
         )
         return raw_logo_text

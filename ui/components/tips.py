@@ -5,7 +5,7 @@ from rich.text import Text
 def get_tips_renderable(theme: dict):
     """Generates the Tips renderable."""
     primary = theme.get("primary")
-    background = theme.get("background", "#1c1c1c")
+    background = theme.get("background", "#2B2B2B")
     
     if isinstance(primary, str):
         primary_style = Style(color=primary)
@@ -17,7 +17,7 @@ def get_tips_renderable(theme: dict):
     if isinstance(background, str):
         background_style = Style(bgcolor=background)
     else:
-        background_style = Style(bgcolor="#1c1c1c")
+        background_style = Style(bgcolor="#2B2B2B")
     
     tips_style = primary_style + background_style
 

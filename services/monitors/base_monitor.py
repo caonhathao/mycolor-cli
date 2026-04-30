@@ -16,8 +16,7 @@ from prompt_toolkit.formatted_text import ANSI as PT_ANSI
 class BaseMonitor:
     def __init__(self, title="Monitor", color=None):
         self.title = title
-        colors = get_current_theme_colors()
-        self.color = color if color else colors.get("monitor_graph", "#6A8759")
+        self._forced_color = color
         self.history = []
         self.last_value = 0.0
         self.cached_frame = ""
@@ -112,10 +111,11 @@ class BaseMonitor:
         return graph_text
 
     def render(self, width, height, color=None, border_color=None, unit="%"):
+        colors = get_current_theme_colors()
         if color is None:
-            color = self.color
+            color = self._forced_color if self._forced_color else colors.get("monitor_graph", "#6A8759")
         if border_color is None:
-            border_color = self.color
+            border_color = colors.get("table_border", colors.get("monitor_graph", "#6A8759"))
 
         # Calculate inner dimensions (accounting for border and padding)
         inner_width = max(1, width - 4)
