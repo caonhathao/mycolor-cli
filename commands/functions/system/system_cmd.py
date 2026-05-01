@@ -33,21 +33,21 @@ def confirm_and_execute_kill(log_to_buffer, notification_trigger=None):
     global _pending_kill
     if not _pending_kill:
         return False
-    
+
     colors = get_current_theme_colors()
-    success_color = colors.get("success", "#6A8759")
-    error_color = colors.get("error", "#CC7832")
-    
+    success_color = colors.get("success")
+    error_color = colors.get("error")
+
     name = _pending_kill["name"]
     matches = _pending_kill["matches"]
     _pending_kill = None
-    
+
     killed, failed, total = kill_processes_by_name(name)
     if killed > 0:
         msg = f"Batch kill completed. {killed} services of {name} stopped."
     else:
         msg = f"No processes were terminated. {total} found but failed to kill."
-    
+
     if notification_trigger:
         notification_trigger(msg, is_success=(killed > 0))
     else:
@@ -59,11 +59,11 @@ def confirm_and_execute_kill(log_to_buffer, notification_trigger=None):
 def handle_system_command(log_to_buffer, command_text, notification_trigger=None):
     parts = command_text.split()
     flags = parts[1:] if len(parts) > 1 else []
-    
+
     colors = get_current_theme_colors()
     secondary_hex = colors.get("secondary")
-    success_color = colors.get("success", "#6A8759")
-    error_color = colors.get("error", "#CC7832")
+    success_color = colors.get("success")
+    error_color = colors.get("error")
 
     if not flags or "-h" in flags or "--help" in flags:
         log_to_buffer(BaseResponseTemplate(
@@ -112,30 +112,30 @@ def handle_system_command(log_to_buffer, command_text, notification_trigger=None
             kill_idx = flags.index("--kill") + 1
             name = " ".join(flags[kill_idx:])
             if not name:
-                log_to_buffer("[bold red]Error: Missing process name.[/bold red]")
+                log_to_buffer(f"[bold {error_color}]Error: Missing process name.[/bold {error_color}]")
                 return
-            
+
             matches = find_processes_by_name(name)
-            
+
             if not matches:
                 error_msg = f"No processes found matching '{name}'."
                 if notification_trigger:
                     notification_trigger(error_msg, is_success=False)
                 else:
-                    log_to_buffer(f"[bold red]{error_msg}[/bold red]")
+                    log_to_buffer(f"[bold {error_color}]{error_msg}[/bold {error_color}]")
                 return
-            
+
             colors = get_current_theme_colors()
             primary_hex = colors.get("primary")
             secondary_hex = colors.get("secondary")
-            pid_color = "#00FFFF"
-            
+            pid_color = secondary_hex
+
             log_to_buffer("")
-            
+
             header = f"[{primary_hex} bold]{'PID':<8} {'Process Name':<35} {'Status':<10} {'Memory (MB)':>12}[/{primary_hex} bold]"
             log_to_buffer(header)
             log_to_buffer(f"[{primary_hex} bold]{'-' * 75}[/{primary_hex} bold]")
-            
+
             for proc in matches:
                 row = (
                     f"[{pid_color} bold]{proc['pid']:<8}[/{pid_color} bold]"
@@ -144,14 +144,14 @@ def handle_system_command(log_to_buffer, command_text, notification_trigger=None
                     f"[{secondary_hex}]{proc['memory_mb']:>12.1f}[/{secondary_hex}]"
                 )
                 log_to_buffer(row)
-            
+
             log_to_buffer("")
             log_to_buffer(f"[bold {error_color}]Warning: The following {len(matches)} process(es) will be terminated.[/bold {error_color}]")
             log_to_buffer(f"[bold {error_color}]Do you want to proceed? Type 'Y' or 'yes' to confirm.[/bold {error_color}]")
             log_to_buffer("")
-            
+
             set_pending_kill(name, matches)
-            
+
         except IndexError:
             log_to_buffer(f"[bold {error_color}]Error: Missing process name.[/bold {error_color}]")
 
@@ -164,16 +164,16 @@ def handle_system_command(log_to_buffer, command_text, notification_trigger=None
             log_to_buffer(f"[bold {color}]{msg}[/bold {color}]")
         except IndexError:
             log_to_buffer(f"[bold {error_color}]Error: Missing command.[/bold {error_color}]")
-            
+
     # Startup management
     for flag, enable in [("--d", False), ("--e", True)]:
         if flag in flags:
             try:
                 name_idx = flags.index(flag) + 1
-                name = " ".join(flags[name_idx:]) # Assume name is the rest
+                name = " ".join(flags[name_idx:])
                 success, msg = set_startup_state(name, enable)
                 color = success_color if success else error_color
                 log_to_buffer(f"[bold {color}]{msg}[/bold {color}]")
-                return # Exit after processing one startup command to avoid confusion
+                return
             except IndexError:
                 log_to_buffer(f"[bold {error_color}]Error: Missing app name.[/bold {error_color}]")

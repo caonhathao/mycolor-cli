@@ -11,6 +11,7 @@ from services.monitors.gpu_monitor import GPUMonitor
 from services.monitors.net_monitor import NetMonitor
 from services.monitors.ram_monitor import RAMMonitor
 from core.logger import get_worker_logger
+from core.theme_engine import get_current_theme_colors
 from core.constants import config_manager
 
 _worker_logger = get_worker_logger()
@@ -221,10 +222,13 @@ class PerformanceTab(BaseTab):
         _log_debug("PERF", "render_start")
         width, height = self._calculate_graph_dimensions()
 
+        colors = get_current_theme_colors()
+        dim_color = colors.get("inactive_tab", colors.get("primary"))
+
         if not self._has_data():
             _log_debug("PERF", "render_skeleton")
-            skeleton = f"\x1b[90m{'=' * (width - 4)}\x1b[0m\n" * (height - 2)
-            skeleton += f"\x1b[90m[\x1b[0m Collecting metrics... \x1b[90m]\x1b[0m"
+            skeleton = f"[{dim_color}]{'=' * (width - 4)}[/]\n" * (height - 2)
+            skeleton += f"[{dim_color}][/] Collecting metrics... [{dim_color}][/]"
             return {
                 "cpu": skeleton,
                 "ram": skeleton,

@@ -25,13 +25,14 @@ class CommandsTab(BaseTab):
 
         colors = get_current_theme_colors()
         primary_hex = colors["primary"]
-        suggestion_bg = colors.get("suggestion_bg", "#21262d")
-        table_text = colors.get("table_text", "#BBBBBB")
+        secondary = colors.get("secondary", colors.get("primary", ""))
+        suggestion_bg = colors.get("suggestion_bg", colors.get("primary", ""))
+        table_text = colors.get("table_text", "white")
 
         ALIAS_COL = 20
         CMD_COL = 35
 
-        self._ansi_console.print(f"[bold #00FFFF]{'ALIAS':<{ALIAS_COL}}[/][bold white]{'COMMAND':<{CMD_COL}}[/]")
+        self._ansi_console.print(f"[bold {secondary}]{'ALIAS':<{ALIAS_COL}}[/][bold {table_text}]{'COMMAND':<{CMD_COL}}[/]")
         self._ansi_console.print("[dim]" + "─" * (ALIAS_COL + CMD_COL) + "[/dim]")
 
         commands = self.parent._settings.get("commands", {})
@@ -39,7 +40,7 @@ class CommandsTab(BaseTab):
 
         for i, (alias, cmd) in enumerate(items):
             is_selected = (i == self.selected)
-            row = f"[#00FFFF]{alias:<{ALIAS_COL}}[/][{table_text}]{cmd:<{CMD_COL}}[/]"
+            row = f"[{secondary}]{alias:<{ALIAS_COL}}[/][{table_text}]{cmd:<{CMD_COL}}[/]"
             if is_selected:
                 self._ansi_console.print(f"[on {suggestion_bg}]{row}[/on {suggestion_bg}]")
             else:
@@ -97,6 +98,7 @@ class CommandsTab(BaseTab):
             self.parent.commands_items = list(self.parent._settings["commands"].items())
             self.selected = min(self.selected, len(self.parent.commands_items) - 1)
             self.parent.save_all()
+            self.parent._notify_restart_required()
 
     def on_activate(self):
         self.selected = 0

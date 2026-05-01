@@ -24,6 +24,7 @@ from commands.functions.theme.theme_logic import ensure_config_exists
 from core.theme_engine import get_current_theme_colors, get_app_style
 from ui.styles.theme_styles import get_theme_style
 from core.logger import log_global_crash
+from core.constants import APP_VERSION
 from ui.screens.cmd_screen import get_cmd_screen_container
 from ui.screens.intro_screen import get_intro_screen_container
 
@@ -40,6 +41,17 @@ def _get_settings_path():
     else:
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     return os.path.join(base_dir, "config", "settings.json")
+
+
+def set_terminal_title(title: str):
+    """Set terminal window title using multiple methods for robustness."""
+    # Method 1: ANSI escape sequence (works in Windows Terminal, VT100 compatible)
+    sys.stdout.write(f"\x1b]2;{title}\x07")
+    sys.stdout.flush()
+    
+    # Method 2: Windows title command (backup)
+    if platform.system() == "Windows":
+        os.system(f"title {title}")
 
 
 def early_window_resize():
@@ -71,6 +83,8 @@ if len(sys.argv) > 1 and "--mode" in sys.argv:
 
 early_window_resize()
 
+# Set terminal title immediately on startup
+set_terminal_title(f"MYCOLOR - {APP_VERSION}")
 
 async def main_app(mode="default"):
     try:
@@ -113,6 +127,9 @@ async def main_app(mode="default"):
     os.system("cls" if os.name == "nt" else "clear")
 
     console = Console(width=shutil.get_terminal_size().columns)
+
+    # Set terminal window title using ANSI escape sequence
+    set_terminal_title(f"MYCOLOR - {APP_VERSION}")
 
     application = Application(
         layout=None,

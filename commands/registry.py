@@ -21,9 +21,10 @@ def dispatch(
     notification_trigger=None,
 ):
     colors = get_current_theme_colors()
-    success_color = colors.get("success", "#6A8759")
-    error_color = colors.get("error", "#CC7832")
+    success_color = colors.get("success")
+    error_color = colors.get("error")
     primary_hex = colors.get("primary")
+    secondary_hex = colors.get("secondary")
 
     if command_text == "/quit":
         application_ref.exit()
@@ -57,10 +58,10 @@ def dispatch(
             log_to_buffer("  - Shortcuts: keyboard shortcut mappings")
             log_to_buffer("  - Commands: command aliases")
             log_to_buffer("")
-            log_to_buffer("[bold #00FF88]Tip: Alt+S saves changes, Alt+Q quits without saving.[/bold #00FF88]")
+            log_to_buffer(f"[bold {secondary_hex}]Tip: Alt+S saves changes, Alt+Q quits without saving.[/bold {secondary_hex}]")
         else:
             success, msg = launch_settings_window()
-            color = success_color if success else error_color
+            color = secondary_hex if success else error_color
             log_to_buffer(f"[bold {color}]{msg}[/bold {color}]")
         return True
 

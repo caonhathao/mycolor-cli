@@ -27,15 +27,17 @@ class GeneralTab(BaseTab):
 
         colors = get_current_theme_colors()
         primary_hex = colors["primary"]
-        suggestion_bg = colors.get("suggestion_bg", "#21262d")
-        table_text = colors.get("table_text", "#BBBBBB")
-        accent = colors.get("tab_accent", "#CC7832")
+        secondary = colors.get("secondary", colors.get("primary", ""))
+        suggestion_bg = colors.get("suggestion_bg", colors.get("primary", ""))
+        table_text = colors.get("table_text", "white")
+        accent = colors.get("tab_accent", colors.get("secondary", ""))
+        success = colors.get("success", colors.get("primary", ""))
 
         KEY_COL = 18
         VAL_COL = 20
         DESC_COL = 25
 
-        self._ansi_console.print(f"[bold #00FFFF]{'SETTING':<{KEY_COL}}[/][bold white]{'VALUE':<{VAL_COL}}[/][bold #00FF88]{'DESCRIPTION':<{DESC_COL}}[/]")
+        self._ansi_console.print(f"[bold {secondary}]{'SETTING':<{KEY_COL}}[/][bold {table_text}]{'VALUE':<{VAL_COL}}[/][bold {accent}]{'DESCRIPTION':<{DESC_COL}}[/]")
         self._ansi_console.print("[dim]" + "─" * (KEY_COL + VAL_COL + DESC_COL) + "[/dim]")
 
         customs = self.parent._settings.get("customs", {})
@@ -55,7 +57,7 @@ class GeneralTab(BaseTab):
 
         for i, (key, val, desc) in enumerate(items):
             is_selected = (i == self.selected)
-            row = f"[#00FFFF]{key:<{KEY_COL}}[/][{table_text}]{val:<{VAL_COL}}[/][{accent}]{desc:<{DESC_COL}}[/]"
+            row = f"[{secondary}]{key:<{KEY_COL}}[/][{table_text}]{val:<{VAL_COL}}[/][{accent}]{desc:<{DESC_COL}}[/]"
             if is_selected:
                 self._ansi_console.print(f"[on {suggestion_bg}]{row}[/on {suggestion_bg}]")
             else:
@@ -83,7 +85,7 @@ class GeneralTab(BaseTab):
                 self.parent.app.invalidate()
         elif key == "logo_style":
             self.parent.popup_mode = True
-            self.parent.popup_options = ["gradient", "minimal", "ascii"]
+            self.parent.popup_options = ["gradient", "dither", "minimal"]
             self.parent.popup_selected = self.parent.popup_options.index(customs.get("logo_style", "gradient"))
             self.parent.popup_title = "SELECT LOGO STYLE"
             self.parent.edit_key = ("custom", "logo_style")
@@ -97,10 +99,12 @@ class GeneralTab(BaseTab):
             customs["show_tips"] = not customs.get("show_tips", True)
             self.parent._settings["customs"] = customs
             self.parent.save_all()
+            self.parent._notify_restart_required()
         elif key == "show_logo_shadow":
             customs["show_logo_shadow"] = not customs.get("show_logo_shadow", True)
             self.parent._settings["customs"] = customs
             self.parent.save_all()
+            self.parent._notify_restart_required()
 
     def handle_delete(self):
         pass
