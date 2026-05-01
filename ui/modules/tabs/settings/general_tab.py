@@ -85,7 +85,7 @@ class GeneralTab(BaseTab):
                 self.parent.app.invalidate()
         elif key == "logo_style":
             self.parent.popup_mode = True
-            self.parent.popup_options = ["gradient", "minimal", "ascii"]
+            self.parent.popup_options = ["gradient", "dither", "minimal"]
             self.parent.popup_selected = self.parent.popup_options.index(customs.get("logo_style", "gradient"))
             self.parent.popup_title = "SELECT LOGO STYLE"
             self.parent.edit_key = ("custom", "logo_style")

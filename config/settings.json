@@ -23,11 +23,11 @@
         "exclude_system_apps": true
     },
     "customs": {
-        "theme": "darcula",
+        "theme": "cyber",
         "logo_style": "gradient",
         "show_tips": true,
         "show_logo_shadow": true,
-        "cursor_style": "block"
+        "cursor_style": "underline"
     },
     "shortcuts": {
         "Ctrl+L": "/clear",
